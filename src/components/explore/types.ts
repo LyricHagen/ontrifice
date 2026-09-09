@@ -56,7 +56,9 @@ export interface MarketDetail {
     relationClass: string;
     relationType: string;
     score: string;
+    confidence: string;
     direction: string;
+    sampleSize: number | null;
     resolutionMatchStatus: string | null;
   }>;
   connectedMarkets: Array<{
@@ -65,6 +67,39 @@ export interface MarketDetail {
     platform: string;
     currentProbability: string | null;
   }>;
+}
+
+export interface EdgeDetail {
+  edge: {
+    id: string;
+    sourceMarketId: string;
+    targetMarketId: string;
+    relationClass: string;
+    relationType: string;
+    score: string;
+    confidence: string;
+    direction: string;
+    mathematicalSemantics: string | null;
+    resolutionMatchStatus: string | null;
+    evidence: Record<string, unknown> | null;
+    modelVersion: string | null;
+    algorithmParams: Record<string, unknown> | null;
+    observedAt: string;
+    validUntil: string | null;
+    sampleSize: number | null;
+  };
+  sourceMarket: {
+    id: string;
+    title: string;
+    platform: string;
+    currentProbability: string | null;
+  } | null;
+  targetMarket: {
+    id: string;
+    title: string;
+    platform: string;
+    currentProbability: string | null;
+  } | null;
 }
 
 export interface Filters {

@@ -7,6 +7,7 @@ import { DetailPanel } from "./detail-panel";
 import type {
   GraphData,
   MarketDetail,
+  EdgeDetail,
   Filters,
 } from "./types";
 import { PLATFORM_COLORS, RELATION_CLASS_COLORS } from "./types";
@@ -55,6 +56,13 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
   const [detail, setDetail] = useState<MarketDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [edgeDetail, setEdgeDetail] = useState<EdgeDetail | null>(null);
+  const [edgeDetailLoading, setEdgeDetailLoading] = useState(false);
+  const [edgeDetailError, setEdgeDetailError] = useState<string | null>(null);
+
+  const [panelMode, setPanelMode] = useState<"market" | "edge">("market");
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -156,18 +164,59 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
     }
   }, []);
 
+  const fetchEdgeDetail = useCallback(async (edgeId: string) => {
+    setEdgeDetailLoading(true);
+    setEdgeDetailError(null);
+    try {
+      const res = await fetch(`/api/graph/edges/${edgeId}`);
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(
+          body?.error?.message ??
+            `Failed to load edge details (HTTP ${res.status}).`,
+        );
+      }
+      const body: EdgeDetail = await res.json();
+      setEdgeDetail(body);
+    } catch (err) {
+      setEdgeDetailError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred loading edge details. (ERR_EDGE_DETAIL_FETCH)",
+      );
+    } finally {
+      setEdgeDetailLoading(false);
+    }
+  }, []);
+
   const handleNodeClick = useCallback(
     (id: string) => {
       setSelectedId(id);
+      setSelectedEdgeId(null);
+      setPanelMode("market");
       fetchDetail(id);
     },
     [fetchDetail],
   );
 
+  const handleEdgeClick = useCallback(
+    (edgeId: string) => {
+      setSelectedEdgeId(edgeId);
+      setSelectedId(null);
+      setPanelMode("edge");
+      fetchEdgeDetail(edgeId);
+    },
+    [fetchEdgeDetail],
+  );
+
   const handleCloseDetail = useCallback(() => {
     setSelectedId(null);
+    setSelectedEdgeId(null);
     setDetail(null);
+    setEdgeDetail(null);
     setDetailError(null);
+    setEdgeDetailError(null);
+    setPanelMode("market");
   }, []);
 
   useEffect(() => {
@@ -191,6 +240,8 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleNodeHover = useCallback((_id: string | null) => {}, []);
+
+  const showPanel = selectedId !== null || selectedEdgeId !== null;
 
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
@@ -291,8 +342,10 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
             markets={data.markets}
             edges={filteredEdges}
             selectedId={selectedId}
+            selectedEdgeId={selectedEdgeId}
             onNodeClick={handleNodeClick}
             onNodeHover={handleNodeHover}
+            onEdgeClick={handleEdgeClick}
             platformColors={PLATFORM_COLORS}
             relationClassColors={RELATION_CLASS_COLORS}
             centerOnNodeRef={centerOnNodeRef}
@@ -311,13 +364,16 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
         )}
       </div>
 
-      {selectedId && (
+      {showPanel && (
         <DetailPanel
           detail={detail}
-          loading={detailLoading}
-          error={detailError}
+          edgeDetail={edgeDetail}
+          mode={panelMode}
+          loading={panelMode === "edge" ? edgeDetailLoading : detailLoading}
+          error={panelMode === "edge" ? edgeDetailError : detailError}
           onClose={handleCloseDetail}
           onNodeClick={handleNodeClick}
+          onEdgeClick={handleEdgeClick}
           isBottomSheet={isMobile}
         />
       )}
