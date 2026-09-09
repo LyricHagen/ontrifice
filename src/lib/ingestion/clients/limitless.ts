@@ -7,11 +7,11 @@ const MAX_PAGES = 20;
 const PAGE_SIZE = 100;
 const MAX_RETRIES = 3;
 
-// TODO: confirm exact response shape against Limitless API docs
 interface LimitlessMarket {
   id: string;
   title: string;
   description?: string;
+  resolution_criteria?: string;
   category?: string;
   status: string;
   probability?: number;
@@ -130,6 +130,7 @@ function toRawMarket(market: LimitlessMarket): RawMarket | null {
       platformMarketId: market.id,
       title: market.title,
       description: market.description,
+      resolutionRules: market.resolution_criteria ?? market.description ?? undefined,
       category: market.category,
       probability: parseProbability(market),
       volumeUsd: market.volume,

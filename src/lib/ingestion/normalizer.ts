@@ -52,6 +52,7 @@ export function normalizeMarket(raw: RawMarket): NormalizedMarket | null {
     platformMarketId: raw.platformMarketId,
     title: raw.title.trim(),
     description: raw.description?.trim() ?? null,
+    resolutionRules: raw.resolutionRules?.trim() ?? null,
     category: normalizeCategory(raw.category),
     currentProbability: normalizeProbability(raw.probability),
     volumeUsd: normalizeVolume(raw.volumeUsd),

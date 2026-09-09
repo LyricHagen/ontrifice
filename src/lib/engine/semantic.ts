@@ -11,7 +11,9 @@ interface MarketDoc {
   id: string;
   title: string;
   description: string | null;
+  resolutionRules: string | null;
   category: string | null;
+  platform: string;
   metadata: Record<string, unknown> | null;
 }
 
@@ -144,6 +146,45 @@ function cosineSimilarity(a: TfIdfVector, b: TfIdfVector): number {
 
 const SEMANTIC_THRESHOLD = 0.3;
 const CATEGORY_ENTITY_BONUS = 0.1;
+const CROSS_PLATFORM_SIMILARITY_THRESHOLD = 0.7;
+
+function compareResolutionRules(
+  rulesA: string | null,
+  rulesB: string | null,
+): { status: "verified_equivalent" | "likely_equivalent" | "unverified" | "divergent"; note: string } {
+  if (!rulesA || !rulesB) {
+    return { status: "unverified", note: "Resolution rules unavailable for one or both markets." };
+  }
+
+  const normA = rulesA.toLowerCase().replace(/\s+/g, " ").trim();
+  const normB = rulesB.toLowerCase().replace(/\s+/g, " ").trim();
+
+  if (normA === normB) {
+    return { status: "verified_equivalent", note: "Resolution rules are identical." };
+  }
+
+  const tokensA = new Set(tokenize(rulesA));
+  const tokensB = new Set(tokenize(rulesB));
+  const intersection = new Set([...tokensA].filter((t) => tokensB.has(t)));
+  const union = new Set([...tokensA, ...tokensB]);
+  const jaccard = union.size > 0 ? intersection.size / union.size : 0;
+
+  if (jaccard > 0.8) {
+    return { status: "likely_equivalent", note: `Resolution rules are very similar (overlap: ${(jaccard * 100).toFixed(0)}%).` };
+  }
+
+  if (jaccard > 0.5) {
+    return {
+      status: "likely_equivalent",
+      note: `Resolution rules are similar but not identical (overlap: ${(jaccard * 100).toFixed(0)}%). Review recommended.`,
+    };
+  }
+
+  return {
+    status: "divergent",
+    note: "These markets have similar titles but different resolution criteria. They may resolve differently.",
+  };
+}
 
 export interface SemanticEdge {
   sourceMarketId: string;
@@ -154,10 +195,12 @@ export interface SemanticEdge {
   confidence: number;
   mathematicalSemantics: string;
   modelVersion: string;
+  resolutionMatchStatus?: "verified_equivalent" | "likely_equivalent" | "unverified" | "divergent";
   evidence: {
     cosineSimilarity: number;
     sharedEntities: string[];
     categoryMatch: boolean;
+    resolutionComparison?: string;
   };
 }
 
@@ -179,7 +222,9 @@ export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
       id: schema.markets.id,
       title: schema.markets.title,
       description: schema.markets.description,
+      resolutionRules: schema.markets.resolutionRules,
       category: schema.markets.category,
+      platform: schema.markets.platform,
       metadata: schema.markets.metadata,
     })
     .from(schema.markets)
@@ -253,6 +298,21 @@ export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
           ? `shared category '${activeMarkets[i].category}'`
           : "textual overlap in question phrasing";
 
+      const isCrossPlatform = activeMarkets[i].platform !== activeMarkets[j].platform;
+      let resolutionMatchStatus: SemanticEdge["resolutionMatchStatus"];
+      let resolutionComparison: string | undefined;
+
+      if (isCrossPlatform && similarity > CROSS_PLATFORM_SIMILARITY_THRESHOLD) {
+        const comparison = compareResolutionRules(
+          activeMarkets[i].resolutionRules,
+          activeMarkets[j].resolutionRules,
+        );
+        resolutionMatchStatus = comparison.status;
+        resolutionComparison = comparison.note;
+      } else if (isCrossPlatform) {
+        resolutionMatchStatus = "unverified";
+      }
+
       edges.push({
         sourceMarketId: activeMarkets[i].id,
         targetMarketId: activeMarkets[j].id,
@@ -262,10 +322,12 @@ export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
         confidence: Math.min(similarity * 1.2, 1),
         mathematicalSemantics: `tfidf_cosine=${similarity.toFixed(4)}; ${entityDesc}`,
         modelVersion: "tfidf-v1",
+        resolutionMatchStatus,
         evidence: {
           cosineSimilarity: similarity,
           sharedEntities: shared,
           categoryMatch,
+          resolutionComparison,
         },
       });
     }

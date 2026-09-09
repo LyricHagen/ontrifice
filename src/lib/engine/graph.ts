@@ -90,6 +90,10 @@ export async function buildGraph(
       )
       .limit(1);
 
+    const resolutionMatchStatus = "resolutionMatchStatus" in edge
+      ? (edge.resolutionMatchStatus as "verified_equivalent" | "likely_equivalent" | "unverified" | "divergent" | undefined)
+      : undefined;
+
     const values = {
       sourceMarketId: source,
       targetMarketId: target,
@@ -105,6 +109,7 @@ export async function buildGraph(
         ? (edge.algorithmParams as Record<string, unknown>)
         : null,
       sampleSize: "sampleSize" in edge ? (edge.sampleSize as number) : null,
+      resolutionMatchStatus: resolutionMatchStatus ?? null,
       observedAt: new Date(),
       validUntil: null,
     };

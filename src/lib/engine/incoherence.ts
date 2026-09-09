@@ -174,6 +174,19 @@ async function detectProbabilityDivergences(): Promise<IncoherenceResult[]> {
     return result;
   }
 
+  const marketPlatformCache = new Map<string, string>();
+
+  async function getMarketPlatform(id: string): Promise<string | null> {
+    if (marketPlatformCache.has(id)) return marketPlatformCache.get(id)!;
+    const [row] = await db
+      .select({ platform: schema.markets.platform })
+      .from(schema.markets)
+      .where(eq(schema.markets.id, id));
+    if (!row) return null;
+    marketPlatformCache.set(id, row.platform);
+    return row.platform;
+  }
+
   for (const edge of strongEdges) {
     const source = await getMarket(edge.sourceMarketId);
     const target = await getMarket(edge.targetMarketId);
@@ -184,6 +197,48 @@ async function detectProbabilityDivergences(): Promise<IncoherenceResult[]> {
 
     const expectedMaxDiff = 1 - score;
     if (probDiff > expectedMaxDiff + 0.15) {
+      const sourcePlatform = await getMarketPlatform(edge.sourceMarketId);
+      const targetPlatform = await getMarketPlatform(edge.targetMarketId);
+      const isCrossPlatform = sourcePlatform !== null && targetPlatform !== null && sourcePlatform !== targetPlatform;
+
+      const resolutionStatus = (edge as Record<string, unknown>).resolutionMatchStatus as string | null;
+
+      if (isCrossPlatform && resolutionStatus !== "verified_equivalent") {
+        const resolutionNote = resolutionStatus === "divergent"
+          ? " Resolution criteria differ between these platforms, so this price difference may be justified."
+          : " Resolution equivalence has not been verified between these platforms.";
+
+        const significance = Math.min((probDiff - expectedMaxDiff) * 2, 1) * Math.min(score, 1);
+        const volumeFactor = Math.min((source.volume + target.volume) / 200000, 1);
+        const severity = 0.3 + 0.4 * significance * volumeFactor;
+
+        results.push({
+          involvedMarketIds: [edge.sourceMarketId, edge.targetMarketId],
+          violationType: "probability_divergence",
+          detectionClass: "divergence",
+          severity: Math.min(severity, 0.5),
+          description:
+            `Cross-platform ${edge.relationClass}/${edge.relationType} relationship (score ${score.toFixed(2)}) between ` +
+            `"${source.title}" (${(source.probability * 100).toFixed(1)}%) and ` +
+            `"${target.title}" (${(target.probability * 100).toFixed(1)}%). ` +
+            `Divergence: ${(probDiff * 100).toFixed(1)}pp, expected max: ${(expectedMaxDiff * 100).toFixed(1)}pp.` +
+            resolutionNote,
+          impliedArbitrage: {
+            type: "suggested_position",
+            warning: "This position is profitable only if the historical relationship holds going forward and both markets resolve under equivalent criteria. It is a statistical bet, not a guaranteed arbitrage.",
+            edgeScore: score,
+            relationClass: edge.relationClass,
+            relationType: edge.relationType,
+            resolutionMatchStatus: resolutionStatus ?? "unverified",
+            sourceProbability: source.probability,
+            targetProbability: target.probability,
+            divergence: probDiff,
+            expectedMaxDivergence: expectedMaxDiff,
+          },
+        });
+        continue;
+      }
+
       const significance = Math.min((probDiff - expectedMaxDiff) * 2, 1) * Math.min(score, 1);
       const volumeFactor = Math.min((source.volume + target.volume) / 200000, 1);
       const severity = 0.3 + 0.4 * significance * volumeFactor;
@@ -191,7 +246,7 @@ async function detectProbabilityDivergences(): Promise<IncoherenceResult[]> {
       results.push({
         involvedMarketIds: [edge.sourceMarketId, edge.targetMarketId],
         violationType: "probability_divergence",
-        detectionClass: "divergence",
+        detectionClass: isCrossPlatform ? "contradiction" : "divergence",
         severity: Math.min(severity, 0.7),
         description:
           `Strong ${edge.relationClass}/${edge.relationType} relationship (score ${score.toFixed(2)}) between ` +

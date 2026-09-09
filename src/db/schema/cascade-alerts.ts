@@ -9,6 +9,16 @@ import {
 import { alertStatusEnum } from "./enums";
 import { markets } from "./markets";
 
+export interface EmpiricalDelta {
+  expected: number;
+  lower: number;
+  upper: number;
+  beta: number;
+  observations: number;
+  lagWindowSeconds: number;
+  lagBasis: "empirical" | "estimated";
+}
+
 export const cascadeAlerts = pgTable("cascade_alerts", {
   id: uuid("id").primaryKey().defaultRandom(),
   triggerMarketId: uuid("trigger_market_id")
@@ -21,7 +31,7 @@ export const cascadeAlerts = pgTable("cascade_alerts", {
   }).notNull(),
   expectedDeltas: jsonb("expected_deltas")
     .notNull()
-    .$type<Record<string, number>>(),
+    .$type<Record<string, EmpiricalDelta>>(),
   lagWindowSeconds: integer("lag_window_seconds").notNull(),
   detectedAt: timestamp("detected_at", { withTimezone: true })
     .notNull()

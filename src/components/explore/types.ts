@@ -28,6 +28,7 @@ export interface GraphEdge {
   mathematicalSemantics: string | null;
   modelVersion: string | null;
   sampleSize: number | null;
+  resolutionMatchStatus: string | null;
 }
 
 export interface GraphData {
@@ -56,6 +57,7 @@ export interface MarketDetail {
     relationType: string;
     score: string;
     direction: string;
+    resolutionMatchStatus: string | null;
   }>;
   connectedMarkets: Array<{
     id: string;

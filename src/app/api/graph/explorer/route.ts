@@ -110,6 +110,7 @@ export async function GET(request: NextRequest) {
         mathematicalSemantics: schema.edges.mathematicalSemantics,
         modelVersion: schema.edges.modelVersion,
         sampleSize: schema.edges.sampleSize,
+        resolutionMatchStatus: schema.edges.resolutionMatchStatus,
       })
       .from(schema.edges)
       .where(and(...edgeConditions));

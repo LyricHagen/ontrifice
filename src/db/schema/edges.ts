@@ -8,7 +8,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
-import { relationClassEnum, edgeDirectionEnum } from "./enums";
+import { relationClassEnum, edgeDirectionEnum, resolutionMatchStatusEnum } from "./enums";
 import { markets } from "./markets";
 
 export const edges = pgTable(
@@ -29,6 +29,7 @@ export const edges = pgTable(
       .notNull()
       .default("bidirectional"),
     mathematicalSemantics: text("mathematical_semantics"),
+    resolutionMatchStatus: resolutionMatchStatusEnum("resolution_match_status"),
     evidence: jsonb("evidence").$type<Record<string, unknown>>(),
     modelVersion: text("model_version"),
     algorithmParams: jsonb("algorithm_params").$type<Record<string, unknown>>(),

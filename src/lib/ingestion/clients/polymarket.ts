@@ -129,6 +129,7 @@ function toRawMarket(market: PolymarketMarket): RawMarket | null {
       platformMarketId: market.id,
       title: market.question,
       description: market.description,
+      resolutionRules: market.description ?? undefined,
       category: market.category,
       probability: parseProbability(market),
       volumeUsd: market.volume ? parseFloat(market.volume) : undefined,

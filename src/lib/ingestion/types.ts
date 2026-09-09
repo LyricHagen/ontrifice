@@ -5,6 +5,7 @@ export interface RawMarket {
   platformMarketId: string;
   title: string;
   description?: string;
+  resolutionRules?: string;
   category?: string;
   probability?: number;
   volumeUsd?: number;
@@ -18,6 +19,7 @@ export interface NormalizedMarket {
   platformMarketId: string;
   title: string;
   description: string | null;
+  resolutionRules: string | null;
   category: string | null;
   currentProbability: string | null;
   volumeUsd: string | null;

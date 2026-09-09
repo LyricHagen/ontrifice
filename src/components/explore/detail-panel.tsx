@@ -163,6 +163,15 @@ export function DetailPanel({
                               {edge.relationClass}/{edge.relationType} &middot;{" "}
                               {parseFloat(edge.score).toFixed(3)}
                             </span>
+                            {edge.relationClass === "semantic" && edge.resolutionMatchStatus && edge.resolutionMatchStatus !== "verified_equivalent" && (
+                              <span className="block text-text-secondary mt-0.5" style={{ fontSize: "10px" }}>
+                                {edge.resolutionMatchStatus === "divergent"
+                                  ? "RESOLUTION: DIVERGENT"
+                                  : edge.resolutionMatchStatus === "unverified"
+                                    ? "RESOLUTION: UNVERIFIED"
+                                    : "RESOLUTION: LIKELY EQUIVALENT"}
+                              </span>
+                            )}
                           </span>
                         </button>
                       );

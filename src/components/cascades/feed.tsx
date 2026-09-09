@@ -11,8 +11,18 @@ interface Market {
   currentProbability: string | null;
 }
 
+interface EmpiricalDeltaInfo {
+  expected: number;
+  lower: number;
+  upper: number;
+  beta: number;
+  observations: number;
+  lagWindowSeconds: number;
+  lagBasis: string;
+}
+
 interface ExpectedMarket extends Market {
-  expectedDelta: number | null;
+  expectedDelta: number | EmpiricalDeltaInfo | null;
 }
 
 interface CascadeAlert {
@@ -240,33 +250,48 @@ export function CascadesFeed() {
                     <div className="mt-1">
                       {alert.expectedMarkets.map((market) => {
                         const isResolved = alert.status === "resolved";
+                        const delta = market.expectedDelta;
+                        const isEmpirical = delta !== null && typeof delta === "object" && "beta" in delta;
+                        const empirical = isEmpirical ? delta as EmpiricalDeltaInfo : null;
+                        const lagSec = empirical?.lagWindowSeconds ?? alert.lagWindowSeconds;
+
                         return (
                           <div
                             key={market.id}
-                            className="flex items-baseline gap-2 py-0.5 text-sm"
+                            className="py-1 text-sm"
                           >
-                            <Link
-                              href={`/explore?focus=${market.id}`}
-                              className="text-accent no-underline hover:underline truncate"
-                            >
-                              {market.title}
-                            </Link>
-                            {market.expectedDelta !== null && (
-                              <span className="font-mono text-xs text-text-secondary whitespace-nowrap">
-                                expected: {formatDelta(market.expectedDelta)}
+                            <div className="flex items-baseline gap-2">
+                              <Link
+                                href={`/explore?focus=${market.id}`}
+                                className="text-accent no-underline hover:underline truncate"
+                              >
+                                {market.title}
+                              </Link>
+                              {isResolved && (
+                                <span className="text-xs font-mono text-text-secondary">
+                                  [resolved]
+                                </span>
+                              )}
+                            </div>
+                            {empirical && (
+                              <div className="font-mono text-xs text-text-secondary mt-0.5">
+                                <span>
+                                  expected: {formatDelta(empirical.lower)} to {formatDelta(empirical.upper)}
+                                </span>
+                                <span className="ml-2">
+                                  (n={empirical.observations}, beta={empirical.beta.toFixed(3)})
+                                </span>
+                              </div>
+                            )}
+                            {!empirical && delta !== null && (
+                              <span className="font-mono text-xs text-text-secondary">
+                                expected: {formatDelta(typeof delta === "number" ? delta : 0)}
                               </span>
                             )}
                             {alert.status === "active" && (
-                              <span className="text-xs text-text-secondary whitespace-nowrap">
-                                {formatTimeRemaining(
-                                  alert.detectedAt,
-                                  alert.lagWindowSeconds,
-                                )}
-                              </span>
-                            )}
-                            {isResolved && (
-                              <span className="text-xs font-mono text-text-secondary">
-                                [resolved]
+                              <span className="text-xs text-text-secondary block mt-0.5">
+                                {formatTimeRemaining(alert.detectedAt, lagSec)}
+                                {empirical && empirical.lagBasis === "estimated" && " (estimated, no historical basis)"}
                               </span>
                             )}
                           </div>

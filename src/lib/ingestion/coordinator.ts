@@ -41,6 +41,7 @@ async function upsertMarket(
       .set({
         title: market.title,
         description: market.description,
+        resolutionRules: market.resolutionRules,
         category: market.category,
         currentProbability: market.currentProbability,
         volumeUsd: market.volumeUsd,
@@ -60,6 +61,7 @@ async function upsertMarket(
     platformMarketId: market.platformMarketId,
     title: market.title,
     description: market.description,
+    resolutionRules: market.resolutionRules,
     category: market.category,
     currentProbability: market.currentProbability,
     volumeUsd: market.volumeUsd,

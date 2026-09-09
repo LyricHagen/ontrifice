@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
     const enriched = alerts.map((alert) => {
-      const deltas = alert.expectedDeltas as Record<string, number>;
+      const deltas = alert.expectedDeltas as Record<string, unknown>;
       return {
         ...alert,
         triggerMarket: marketMap.get(alert.triggerMarketId) ?? null,

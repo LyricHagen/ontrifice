@@ -48,6 +48,13 @@ export const alertStatusEnum = pgEnum("alert_status", [
   "expired",
 ]);
 
+export const resolutionMatchStatusEnum = pgEnum("resolution_match_status", [
+  "verified_equivalent",
+  "likely_equivalent",
+  "unverified",
+  "divergent",
+]);
+
 export const confidenceBasisEnum = pgEnum("confidence_basis", [
   "direct_observation",
   "path_inference",

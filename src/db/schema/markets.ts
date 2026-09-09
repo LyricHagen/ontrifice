@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { platformEnum, marketStatusEnum, resolutionEnum } from "./enums";
 
+
 export const markets = pgTable(
   "markets",
   {
@@ -17,6 +18,7 @@ export const markets = pgTable(
     platformMarketId: text("platform_market_id").notNull(),
     title: text("title").notNull(),
     description: text("description"),
+    resolutionRules: text("resolution_rules"),
     category: text("category"),
     currentProbability: decimal("current_probability", {
       precision: 10,

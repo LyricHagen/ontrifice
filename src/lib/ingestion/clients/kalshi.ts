@@ -18,6 +18,8 @@ interface KalshiMarket {
   volume: number;
   open_interest?: number;
   result?: string;
+  rules?: string;
+  settlement_sources?: string;
 }
 
 interface KalshiResponse {
@@ -130,6 +132,7 @@ function toRawMarket(market: KalshiMarket): RawMarket | null {
       platformMarketId: market.ticker,
       title: market.title,
       description: market.subtitle,
+      resolutionRules: market.rules ?? market.settlement_sources ?? undefined,
       category: market.category,
       probability: probability >= 0 && probability <= 1 ? probability : undefined,
       volumeUsd: market.volume ? market.volume / 100 : undefined,
