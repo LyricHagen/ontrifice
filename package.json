@@ -15,7 +15,8 @@
     "eval": "tsx src/lib/eval/run.ts"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
     "d3": "^7.9.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
@@ -27,7 +28,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/bcrypt": "^6.0.0",
     "@types/d3": "^7.4.3",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",

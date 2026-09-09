@@ -4,7 +4,7 @@ import { signIn, signOut, auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { hash } from "bcrypt";
+import { hash } from "bcryptjs";
 import { AuthError } from "next-auth";
 import crypto from "crypto";
 
