@@ -19,9 +19,24 @@ function StatCell({ label }: { label: string }) {
   );
 }
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
+  const params = await searchParams;
+
   return (
     <div className="max-w-[720px] mx-auto px-4 py-16">
+      {params.deleted === "true" && (
+        <div
+          className="border border-border bg-surface px-4 py-3 text-sm text-text-secondary mb-8"
+          style={{ borderRadius: "2px" }}
+        >
+          Your account has been deleted.
+        </div>
+      )}
+
       {/* Header */}
       <header className="mb-16">
         <h1 className="font-mono text-4xl font-bold mb-4">Ontrifice</h1>

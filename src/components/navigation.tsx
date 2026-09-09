@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "./theme-toggle";
 
 const navLinks = [
@@ -13,9 +14,37 @@ const navLinks = [
   { href: "/docs", label: "Docs" },
 ];
 
+function truncateEmail(email: string): string {
+  if (email.length <= 24) return email;
+  const at = email.indexOf("@");
+  if (at <= 0) return email.slice(0, 24) + "...";
+  const local = email.slice(0, at);
+  const domain = email.slice(at);
+  const truncated = local.length > 12 ? local.slice(0, 12) + "..." : local;
+  return truncated + domain;
+}
+
 export function Navigation() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { data: session, status } = useSession();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  const isLoggedIn = status === "authenticated" && !!session?.user;
 
   return (
     <header className="border-b border-border">
@@ -45,19 +74,54 @@ export function Navigation() {
 
         <div className="hidden md:flex items-center gap-4">
           <ThemeToggle />
-          <Link
-            href="/login"
-            className="text-sm text-text-secondary no-underline hover:text-foreground"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/signup"
-            className="text-sm px-3 py-1 border border-accent text-accent no-underline"
-            style={{ borderRadius: "2px" }}
-          >
-            Sign up
-          </Link>
+          {status === "loading" ? (
+            <div className="w-16" />
+          ) : isLoggedIn ? (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="text-sm text-text-secondary font-mono cursor-pointer bg-transparent border-none p-0 hover:text-foreground"
+              >
+                {truncateEmail(session?.user?.email ?? "")}
+              </button>
+              {userMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 border border-border bg-surface py-1 min-w-[160px] z-50"
+                  style={{ borderRadius: "2px" }}
+                >
+                  <Link
+                    href="/settings"
+                    className="block px-4 py-2 text-sm text-text-secondary no-underline hover:text-foreground hover:bg-surface-raised"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="block w-full text-left px-4 py-2 text-sm text-text-secondary cursor-pointer bg-transparent border-none hover:text-foreground hover:bg-surface-raised"
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="text-sm text-text-secondary no-underline hover:text-foreground"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="text-sm px-3 py-1 border border-accent text-accent no-underline"
+                style={{ borderRadius: "2px" }}
+              >
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -101,20 +165,43 @@ export function Navigation() {
           ))}
           <div className="border-t border-border pt-3 flex items-center gap-4">
             <ThemeToggle />
-            <Link
-              href="/login"
-              className="text-sm text-text-secondary no-underline"
-              onClick={() => setMenuOpen(false)}
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="text-sm text-accent no-underline"
-              onClick={() => setMenuOpen(false)}
-            >
-              Sign up
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/settings"
+                  className="text-sm text-text-secondary no-underline"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Settings
+                </Link>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    signOut({ callbackUrl: "/" });
+                  }}
+                  className="text-sm text-text-secondary cursor-pointer bg-transparent border-none p-0"
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm text-text-secondary no-underline"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="text-sm text-accent no-underline"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Sign up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
