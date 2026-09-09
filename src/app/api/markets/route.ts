@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(schema.markets.status, status as "active" | "resolved" | "voided"));
     }
     if (search) {
-      conditions.push(ilike(schema.markets.title, `%${search}%`));
+      const escaped = search.replace(/[%_\\]/g, "\\$&");
+      conditions.push(ilike(schema.markets.title, `%${escaped}%`));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;

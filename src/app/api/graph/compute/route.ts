@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
 import { db, schema } from "@/db";
 import { handleApiError, AuthError } from "@/lib/errors";
 import { runFullPipeline } from "@/lib/engine/orchestrator";
@@ -11,10 +12,12 @@ async function validateApiKey(request: NextRequest): Promise<void> {
   const key = authHeader.replace(/^Bearer\s+/i, "");
   if (!key) throw AuthError("missing_api_key");
 
+  const hashedKey = crypto.createHash("sha256").update(key).digest("hex");
+
   const [user] = await db
     .select({ id: schema.users.id })
     .from(schema.users)
-    .where(eq(schema.users.apiKey, key));
+    .where(eq(schema.users.apiKey, hashedKey));
 
   if (!user) throw AuthError("invalid_credentials");
 }

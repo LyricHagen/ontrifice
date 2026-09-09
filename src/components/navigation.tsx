@@ -9,7 +9,7 @@ import { ThemeToggle } from "./theme-toggle";
 const navLinks = [
   { href: "/explore", label: "Explore" },
   { href: "/incoherences", label: "Incoherences" },
-  { href: "/conditionals", label: "Conditionals" },
+  { href: "/conditionals", label: "Model-Implied" },
   { href: "/cascades", label: "Cascades" },
   { href: "/docs", label: "Docs" },
 ];

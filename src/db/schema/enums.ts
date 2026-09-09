@@ -42,3 +42,8 @@ export const alertStatusEnum = pgEnum("alert_status", [
   "resolved",
   "expired",
 ]);
+
+export const confidenceBasisEnum = pgEnum("confidence_basis", [
+  "direct_observation",
+  "path_inference",
+]);

@@ -5,11 +5,11 @@ import { LiveStats } from "@/components/live-stats";
 export const metadata: Metadata = {
   title: "Ontrifice",
   description:
-    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts across Polymarket, Kalshi, and Limitless.",
+    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts across Polymarket, Kalshi, and Limitless.",
   openGraph: {
     title: "Ontrifice",
     description:
-      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.",
+      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts.",
     type: "website",
     url: "https://ontrifice.dev",
   },
@@ -41,7 +41,7 @@ export default async function Home({
         </p>
         <p className="text-sm text-text-secondary">
           Surfaces cross-event dependencies, logical inconsistencies, and
-          implied conditional probabilities across Polymarket, Kalshi, and
+          model-implied probabilities across Polymarket, Kalshi, and
           Limitless.
         </p>
       </header>
@@ -99,12 +99,12 @@ export default async function Home({
           </div>
           <div className="flex border-t border-border py-5 gap-6">
             <dt className="w-40 shrink-0 font-mono text-sm font-medium border-r border-border pr-6">
-              Implied Conditionals
+              Model-Implied Probabilities
             </dt>
             <dd className="text-sm text-text-secondary leading-relaxed">
-              Computes conditional probabilities that no single market prices.
-              P(recession&nbsp;|&nbsp;no&nbsp;Fed&nbsp;cut) derived from
-              combining 6+ independent markets.
+              Derives probability estimates that no single market prices.
+              P(recession&nbsp;|&nbsp;no&nbsp;Fed&nbsp;cut) computed from the
+              dependency graph using Bernoulli correlation models.
             </dd>
           </div>
           <div className="flex border-t border-b border-border py-5 gap-6">

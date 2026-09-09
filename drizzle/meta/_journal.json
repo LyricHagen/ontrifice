@@ -15,6 +15,13 @@
       "when": 1789012187765,
       "tag": "0001_edge_taxonomy_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788961275826,
+      "tag": "0002_neat_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

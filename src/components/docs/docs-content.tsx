@@ -114,8 +114,8 @@ export function DocsContent() {
           <h1 className="text-3xl font-bold font-mono mb-6">API Documentation</h1>
           <p className="text-text-secondary mb-4">
             Ontrifice exposes a REST API for querying the prediction market
-            dependency graph, computed incoherences, implied conditionals, and
-            cascade alerts.
+            dependency graph, computed incoherences, model-implied probabilities,
+            and cascade alerts.
           </p>
 
           <h3 className="text-lg font-bold font-mono mt-8 mb-2">Base URL</h3>
@@ -472,9 +472,64 @@ export function DocsContent() {
           id="get-api-graph-conditionals"
           method="GET"
           path="/api/graph/conditionals"
-          description="Compute an implied conditional probability between two markets, or list recently computed conditionals."
+          description="Compute a model-implied conditional probability between two markets, or list recent computations."
           auth={false}
         >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Methodology</h3>
+          <p className="text-text-secondary mb-2">
+            For binary random variables A and B with known marginal probabilities
+            P(A) and P(B), the joint probability is computed using the Bernoulli
+            correlation formula:
+          </p>
+          <Code>{`P(A,B) = P(A)*P(B) + r * sqrt(P(A)*(1-P(A)) * P(B)*(1-P(B)))`}</Code>
+          <p className="text-text-secondary mb-2">
+            This is exact for binary variables given the true Pearson correlation r.
+            The conditional follows as P(B|A) = P(A,B) / P(A). The computed joint
+            is clamped to the Frechet bounds [max(0, P(A)+P(B)-1), min(P(A), P(B))];
+            clamping indicates the correlation estimate is unreliable for that pair.
+          </p>
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Confidence levels</h3>
+          <div className="overflow-x-auto my-4">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 font-mono font-medium">Level</th>
+                  <th className="text-left py-2 pr-4 font-mono font-medium">Basis</th>
+                  <th className="text-left py-2 font-mono font-medium">Criteria</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="py-2 pr-4 font-mono">HIGH</td>
+                  <td className="py-2 pr-4 text-text-secondary">direct_observation</td>
+                  <td className="py-2 text-text-secondary">Direct statistical edge with 30+ observations</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="py-2 pr-4 font-mono">MEDIUM</td>
+                  <td className="py-2 pr-4 text-text-secondary">direct_observation</td>
+                  <td className="py-2 text-text-secondary">{"Direct statistical edge with <30 observations"}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="py-2 pr-4 font-mono">LOW</td>
+                  <td className="py-2 pr-4 text-text-secondary">path_inference</td>
+                  <td className="py-2 text-text-secondary">No direct edge; correlation estimated by multiplying along path (assumes conditional independence)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Limitations</h3>
+          <p className="text-text-secondary mb-4">
+            The formula is exact only if the correlation r is the true population
+            Pearson correlation. In practice we use an estimate derived from market
+            price co-movement, which introduces sampling error. Path-inferred
+            estimates multiply correlations along intermediate edges, which assumes
+            conditional independence along the path. This may not hold and can
+            produce misleading estimates. All results are model outputs, not market
+            prices.
+          </p>
+
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
           <ParamTable
             params={[
@@ -486,7 +541,7 @@ export function DocsContent() {
           />
           <p className="text-text-secondary mt-2 mb-4">
             Provide both <span className="font-mono">condition</span> and{" "}
-            <span className="font-mono">target</span> to compute a conditional,
+            <span className="font-mono">target</span> to compute a probability,
             or omit both to list recent computations.
           </p>
 
@@ -497,15 +552,13 @@ export function DocsContent() {
           <Code>{`{
   "conditional": {
     "probability": 0.58,
-    "confidence": 0.79,
+    "confidenceLevel": "HIGH",
+    "confidenceBasis": "direct_observation",
+    "assumptions": "Joint probability computed via Bernoulli correlation formula: P(A,B) = P(A)*P(B) + r*sqrt(P(A)*(1-P(A))*P(B)*(1-P(B))). This is exact for binary random variables given the true Pearson correlation. The correlation r=0.4200 is an estimate from 45 observations.",
     "derivationPath": [
       {
         "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
         "title": "Will the Fed cut rates in Q3 2026?"
-      },
-      {
-        "id": "c3d4e5f6-a7b8-9012-cdef-234567890123",
-        "title": "US unemployment below 4% by Dec 2026?"
       },
       {
         "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
@@ -514,11 +567,13 @@ export function DocsContent() {
     ],
     "conditionMarket": {
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "title": "Will the Fed cut rates in Q3 2026?"
+      "title": "Will the Fed cut rates in Q3 2026?",
+      "probability": 0.72
     },
     "targetMarket": {
       "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "title": "US GDP growth above 3% in 2026?"
+      "title": "US GDP growth above 3% in 2026?",
+      "probability": 0.41
     }
   }
 }`}</Code>

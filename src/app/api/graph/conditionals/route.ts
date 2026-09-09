@@ -41,8 +41,10 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         conditional: {
-          probability: result.conditionalProbability,
-          confidence: result.confidence,
+          probability: result.probability,
+          confidenceLevel: result.confidenceLevel,
+          confidenceBasis: result.confidenceBasis,
+          assumptions: result.assumptions,
           derivationPath: result.derivationPath.map((id) => ({
             id,
             title: pathMarketMap.get(id)?.title ?? "Unknown",
@@ -145,7 +147,7 @@ export async function GET(request: NextRequest) {
 
     throw ValidationError(
       conditionId ? "target" : "condition",
-      "required. Provide both condition and target market IDs, or neither to list recent conditionals.",
+      "required. Provide both condition and target market IDs, or neither to list recent computations.",
     );
   } catch (error) {
     return handleApiError(error);

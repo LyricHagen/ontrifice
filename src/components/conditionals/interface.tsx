@@ -13,7 +13,9 @@ interface MarketOption {
 
 interface ConditionalResult {
   probability: number;
-  confidence: number;
+  confidenceLevel: "HIGH" | "MEDIUM" | "LOW";
+  confidenceBasis: "direct_observation" | "path_inference";
+  assumptions: string;
   derivationPath: Array<{ id: string; title: string }>;
   conditionMarket: { id: string; title: string; probability: number };
   targetMarket: { id: string; title: string; probability: number };
@@ -25,6 +27,9 @@ interface RecentConditional {
   targetMarketId: string;
   conditionalProbability: string;
   confidence: string;
+  confidenceBasis: string;
+  modelVersion: string;
+  assumptions: string;
   computedAt: string;
   conditionMarket: MarketOption;
   targetMarket: MarketOption;
@@ -50,6 +55,14 @@ function formatRelativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+function ConfidenceBadge({ level }: { level: string }) {
+  return (
+    <span className="font-mono text-xs px-1.5 py-0.5 border border-border">
+      {level}
+    </span>
+  );
+}
+
 export function ConditionalsInterface() {
   return (
     <div>
@@ -59,7 +72,7 @@ export function ConditionalsInterface() {
           Recent computations
         </h2>
         <p className="text-sm text-text-secondary mb-6">
-          Previously computed conditional probabilities.
+          Previously computed model-implied probabilities.
         </p>
         <BrowseSection />
       </div>
@@ -236,7 +249,7 @@ function QuerySection() {
           setErrorCode("ERR_CONDITIONAL_NO_PATH");
         } else if (code === "ERR_INSUFFICIENT_DATA") {
           setError(
-            "Not enough snapshot data to compute this conditional reliably. Markets need at least 14 days of price history.",
+            "Not enough data to compute this estimate. Markets need probability data and a statistical or path-based relationship in the dependency graph.",
           );
           setErrorCode("ERR_CONDITIONAL_INSUFFICIENT_DATA");
         } else {
@@ -250,7 +263,7 @@ function QuerySection() {
       setResult(data.conditional);
     } catch {
       setError(
-        "Failed to compute conditional. The server may be temporarily unavailable. Try again.",
+        "Failed to compute estimate. The server may be temporarily unavailable. Try again.",
       );
       setErrorCode("ERR_NETWORK");
     } finally {
@@ -319,9 +332,22 @@ function QuerySection() {
             P({result.targetMarket.title} | {result.conditionMarket.title}) ={" "}
             {(result.probability * 100).toFixed(1)}%
           </p>
-          <p className="text-sm text-text-secondary mt-2 font-mono">
-            Confidence: {(result.confidence * 100).toFixed(1)}%
-          </p>
+          <div className="flex items-center gap-3 mt-2">
+            <ConfidenceBadge level={result.confidenceLevel} />
+            <span className="text-sm text-text-secondary font-mono">
+              {result.confidenceBasis === "direct_observation"
+                ? "Direct statistical edge"
+                : "Path inference"}
+            </span>
+          </div>
+          <div className="mt-4">
+            <p className="text-xs text-text-secondary mb-1">
+              Mathematical basis
+            </p>
+            <p className="text-xs text-text-secondary font-mono leading-relaxed">
+              {result.assumptions}
+            </p>
+          </div>
           <div className="mt-4">
             <p className="text-xs text-text-secondary mb-1">
               Derivation path
@@ -342,6 +368,10 @@ function QuerySection() {
               ))}
             </div>
           </div>
+          <p className="text-xs text-text-secondary mt-4 border-t border-border pt-3">
+            This estimate assumes the observed correlation reflects the true
+            dependency structure. It is not a market price.
+          </p>
         </div>
       )}
     </div>
@@ -380,7 +410,7 @@ function BrowseSection() {
       setData(await res.json());
     } catch {
       setError(
-        "Failed to fetch recent conditionals. The server may be temporarily unavailable.",
+        "Failed to fetch recent computations. The server may be temporarily unavailable.",
       );
       setErrorCode("ERR_NETWORK");
     } finally {
@@ -423,8 +453,8 @@ function BrowseSection() {
     return (
       <div className="border border-border p-4 bg-surface">
         <p className="text-sm text-text-secondary">
-          No conditionals computed yet. Use the query interface above to compute
-          your first conditional probability.
+          No computations yet. Use the query interface above to compute your
+          first model-implied probability.
         </p>
       </div>
     );
@@ -456,9 +486,22 @@ function BrowseSection() {
                   {(parseFloat(c.conditionalProbability) * 100).toFixed(1)}%
                 </span>
               </p>
-              <p className="text-xs text-text-secondary font-mono mt-1">
-                Confidence: {(parseFloat(c.confidence) * 100).toFixed(1)}%
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <ConfidenceBadge
+                  level={
+                    c.confidenceBasis === "direct_observation"
+                      ? parseFloat(c.confidence) >= 0.9
+                        ? "HIGH"
+                        : "MEDIUM"
+                      : "LOW"
+                  }
+                />
+                <span className="text-xs text-text-secondary font-mono">
+                  {c.confidenceBasis === "direct_observation"
+                    ? "direct"
+                    : "path"}
+                </span>
+              </div>
             </div>
             <span className="text-xs text-text-secondary whitespace-nowrap shrink-0">
               {formatRelativeTime(c.computedAt)}

@@ -24,11 +24,11 @@ export const metadata: Metadata = {
     template: "%s | Ontrifice",
   },
   description:
-    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.",
+    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts.",
   openGraph: {
     title: "Ontrifice",
     description:
-      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.",
+      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts.",
     type: "website",
     url: "https://ontrifice.dev",
     siteName: "Ontrifice",

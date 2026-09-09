@@ -1,11 +1,18 @@
 import { db, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/errors";
 
+const MODEL_VERSION = "bernoulli-joint-v1";
+
+type ConfidenceBasis = "direct_observation" | "path_inference";
+type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+
 interface ConditionalResult {
-  conditionalProbability: number;
-  confidence: number;
+  probability: number;
+  confidenceLevel: ConfidenceLevel;
+  confidenceBasis: ConfidenceBasis;
+  assumptions: string;
   derivationPath: string[];
   conditionMarket: { id: string; title: string; probability: number };
   targetMarket: { id: string; title: string; probability: number };
@@ -15,7 +22,7 @@ export async function computeConditional(
   conditionMarketId: string,
   targetMarketId: string,
 ): Promise<ConditionalResult> {
-  logger.info("computing implied conditional", {
+  logger.info("computing model-implied probability", {
     condition: conditionMarketId,
     target: targetMarketId,
   });
@@ -60,7 +67,7 @@ export async function computeConditional(
     throw new AppError(
       "ERR_INSUFFICIENT_DATA",
       422,
-      "One or both markets lack probability data. Markets need at least one recorded probability to compute conditionals.",
+      "One or both markets lack probability data. Markets need at least one recorded probability to compute model-implied probabilities.",
       { condition: conditionMarketId, target: targetMarketId },
     );
   }
@@ -78,6 +85,58 @@ export async function computeConditional(
     );
   }
 
+  const directEdge = await findDirectEdge(conditionMarketId, targetMarketId);
+
+  if (directEdge) {
+    const result = computeFromDirectEdge(pA, pB, directEdge);
+    const confidenceLevel = classifyConfidence(
+      "direct_observation",
+      directEdge.sampleSize,
+    );
+
+    const assumptions =
+      `Joint probability computed via Bernoulli correlation formula: ` +
+      `P(A,B) = P(A)*P(B) + r*sqrt(P(A)*(1-P(A))*P(B)*(1-P(B))). ` +
+      `This is exact for binary random variables given the true Pearson correlation. ` +
+      `The correlation r=${directEdge.score.toFixed(4)} is an estimate from ${directEdge.sampleSize ?? "unknown"} observations.`;
+
+    await db.insert(schema.impliedConditionals).values({
+      conditionMarketId,
+      targetMarketId,
+      conditionalProbability: result.conditional.toFixed(8),
+      confidence: confidenceLevel === "HIGH" ? "0.90000000" : confidenceLevel === "MEDIUM" ? "0.60000000" : "0.30000000",
+      derivationPath: [conditionMarketId, targetMarketId],
+      confidenceBasis: "direct_observation",
+      modelVersion: MODEL_VERSION,
+      assumptions,
+    });
+
+    logger.info("model-implied probability computed (direct edge)", {
+      conditional: result.conditional,
+      confidenceLevel,
+      joint: result.joint,
+      clamped: result.clamped,
+    });
+
+    return {
+      probability: result.conditional,
+      confidenceLevel,
+      confidenceBasis: "direct_observation",
+      assumptions,
+      derivationPath: [conditionMarketId, targetMarketId],
+      conditionMarket: {
+        id: conditionMarket.id,
+        title: conditionMarket.title,
+        probability: pA,
+      },
+      targetMarket: {
+        id: targetMarket.id,
+        title: targetMarket.title,
+        probability: pB,
+      },
+    };
+  }
+
   const path = await findStrongestPath(conditionMarketId, targetMarketId);
 
   if (!path) {
@@ -89,31 +148,38 @@ export async function computeConditional(
     );
   }
 
-  const correlation = estimateCorrelationFromPath(path.weights);
-  const pAB = estimateJointProbability(pA, pB, correlation);
-  const pBgivenA = pAB / pA;
-  const clampedConditional = Math.max(0, Math.min(1, pBgivenA));
+  const pathCorrelation = estimatePathCorrelation(path.weights);
+  const result = computeJointAndConditional(pA, pB, pathCorrelation);
 
-  const pathConfidence = path.minWeight;
-  const confidence = pathConfidence * (1 / path.pathLength) * (pA > 0.1 ? 1 : pA * 10);
+  const assumptions =
+    `Path-inferred estimate through ${path.pathLength} intermediate edge(s). ` +
+    `Correlation along path estimated by multiplying edge correlations (product = ${pathCorrelation.toFixed(4)}). ` +
+    `This assumes conditional independence along the path, which may not hold. ` +
+    `Joint probability formula: P(A,B) = P(A)*P(B) + r*sqrt(P(A)*(1-P(A))*P(B)*(1-P(B))).`;
 
   await db.insert(schema.impliedConditionals).values({
     conditionMarketId,
     targetMarketId,
-    conditionalProbability: clampedConditional.toFixed(8),
-    confidence: Math.min(confidence, 1).toFixed(8),
+    conditionalProbability: result.conditional.toFixed(8),
+    confidence: "0.30000000",
     derivationPath: path.path,
+    confidenceBasis: "path_inference",
+    modelVersion: MODEL_VERSION,
+    assumptions,
   });
 
-  logger.info("conditional computed", {
-    conditional: clampedConditional,
-    confidence,
+  logger.info("model-implied probability computed (path inference)", {
+    conditional: result.conditional,
     pathLength: path.pathLength,
+    pathCorrelation,
+    clamped: result.clamped,
   });
 
   return {
-    conditionalProbability: clampedConditional,
-    confidence: Math.min(confidence, 1),
+    probability: result.conditional,
+    confidenceLevel: "LOW",
+    confidenceBasis: "path_inference",
+    assumptions,
     derivationPath: path.path,
     conditionMarket: {
       id: conditionMarket.id,
@@ -125,6 +191,107 @@ export async function computeConditional(
       title: targetMarket.title,
       probability: pB,
     },
+  };
+}
+
+interface DirectEdge {
+  score: number;
+  sampleSize: number | null;
+}
+
+async function findDirectEdge(
+  sourceId: string,
+  targetId: string,
+): Promise<DirectEdge | null> {
+  const [edge] = await db
+    .select({
+      score: schema.edges.score,
+      sampleSize: schema.edges.sampleSize,
+    })
+    .from(schema.edges)
+    .where(
+      and(
+        eq(schema.edges.relationClass, "statistical"),
+        or(
+          and(
+            eq(schema.edges.sourceMarketId, sourceId),
+            eq(schema.edges.targetMarketId, targetId),
+          ),
+          and(
+            eq(schema.edges.sourceMarketId, targetId),
+            eq(schema.edges.targetMarketId, sourceId),
+          ),
+        ),
+      ),
+    );
+
+  if (!edge) return null;
+
+  return {
+    score: parseFloat(edge.score),
+    sampleSize: edge.sampleSize,
+  };
+}
+
+function classifyConfidence(
+  basis: ConfidenceBasis,
+  sampleSize: number | null,
+): ConfidenceLevel {
+  if (basis === "path_inference") return "LOW";
+  if (sampleSize !== null && sampleSize >= 30) return "HIGH";
+  return "MEDIUM";
+}
+
+function computeFromDirectEdge(
+  pA: number,
+  pB: number,
+  edge: DirectEdge,
+): { joint: number; conditional: number; clamped: boolean } {
+  return computeJointAndConditional(pA, pB, edge.score);
+}
+
+function computeJointAndConditional(
+  pA: number,
+  pB: number,
+  r: number,
+): { joint: number; conditional: number; clamped: boolean } {
+  const frechetLower = Math.max(0, pA + pB - 1);
+  const frechetUpper = Math.min(pA, pB);
+
+  const sigma = Math.sqrt(pA * (1 - pA) * pB * (1 - pB));
+  let joint = pA * pB + r * sigma;
+  let clamped = false;
+
+  if (joint < frechetLower) {
+    logger.warn("joint probability below Frechet lower bound, clamping", undefined, {
+      computed: joint,
+      frechetLower,
+      frechetUpper,
+      r,
+      pA,
+      pB,
+    });
+    joint = frechetLower;
+    clamped = true;
+  } else if (joint > frechetUpper) {
+    logger.warn("joint probability above Frechet upper bound, clamping", undefined, {
+      computed: joint,
+      frechetLower,
+      frechetUpper,
+      r,
+      pA,
+      pB,
+    });
+    joint = frechetUpper;
+    clamped = true;
+  }
+
+  const conditional = joint / pA;
+
+  return {
+    joint,
+    conditional: Math.max(0, Math.min(1, conditional)),
+    clamped,
   };
 }
 
@@ -211,20 +378,10 @@ async function findStrongestPath(
   };
 }
 
-function estimateCorrelationFromPath(weights: number[]): number {
+function estimatePathCorrelation(weights: number[]): number {
   let correlation = 1;
   for (const w of weights) {
     correlation *= w;
   }
   return correlation;
-}
-
-function estimateJointProbability(
-  pA: number,
-  pB: number,
-  correlation: number,
-): number {
-  const independent = pA * pB;
-  const maxJoint = Math.min(pA, pB);
-  return independent + correlation * (maxJoint - independent);
 }

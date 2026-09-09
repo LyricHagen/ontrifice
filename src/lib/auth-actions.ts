@@ -33,7 +33,8 @@ export async function login(
 ): Promise<{ error: string } | undefined> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const redirectTo = (formData.get("redirectTo") as string) || "/explore";
+  const rawRedirect = (formData.get("redirectTo") as string) || "/explore";
+  const redirectTo = rawRedirect.startsWith("/") ? rawRedirect : "/explore";
 
   if (!email || !password) {
     return {
@@ -102,7 +103,7 @@ export async function signup(
   if (existing) {
     return {
       error:
-        "An account with this email already exists. Did you mean to log in instead? (ERR_AUTH_EMAIL_EXISTS)",
+        "Could not create account. If you already have an account, try logging in instead. (ERR_AUTH_SIGNUP_FAILED)",
     };
   }
 

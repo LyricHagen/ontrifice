@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
 import { db, schema } from "@/db";
 import { handleApiError, AuthError } from "@/lib/errors";
 import { runIngestion } from "@/lib/ingestion/coordinator";
@@ -9,10 +10,12 @@ async function validateApiKey(authHeader: string | null): Promise<boolean> {
   const key = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
   if (!key) return false;
 
+  const hashedKey = crypto.createHash("sha256").update(key).digest("hex");
+
   const result = await db
     .select({ id: schema.users.id })
     .from(schema.users)
-    .where(eq(schema.users.apiKey, key))
+    .where(eq(schema.users.apiKey, hashedKey))
     .limit(1);
 
   return result.length > 0;
