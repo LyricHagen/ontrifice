@@ -408,14 +408,37 @@ export function DocsContent() {
           id="get-api-graph-incoherences"
           method="GET"
           path="/api/graph/incoherences"
-          description="List detected incoherences across the market graph. Each incoherence identifies a logical inconsistency between two or more markets."
+          description="List detected incoherences across the market graph. Each incoherence is classified as either a contradiction (logically impossible prices) or a divergence (statistically unusual prices)."
           auth={false}
         >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Detection Classes</h3>
+          <div className="overflow-x-auto my-4">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 font-mono font-medium">Class</th>
+                  <th className="text-left py-2 font-mono font-medium">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="py-2 pr-4 font-mono text-accent">contradiction</td>
+                  <td className="py-2 text-text-secondary">Logically impossible given hard constraints. These are real incoherences.</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="py-2 pr-4 font-mono text-accent">divergence</td>
+                  <td className="py-2 text-text-secondary">Statistically unusual given the model. These are interesting but not certain.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
           <ParamTable
             params={[
               { name: "status", type: "string", description: "Filter by status: active, resolved, expired" },
-              { name: "violation_type", type: "string", description: "Filter by type: probability_sum, conditional_contradiction, mutual_exclusion, implication_violation" },
+              { name: "violation_type", type: "string", description: "Filter by type: probability_sum, probability_divergence, mutual_exclusion, implication_violation" },
+              { name: "detection_class", type: "string", description: "Filter by class: contradiction, divergence" },
               { name: "sort", type: "string", default: "severity", description: "Sort field: severity, detected_at, market_count" },
               { name: "order", type: "string", default: "desc", description: "Sort order: asc, desc" },
               { name: "page", type: "integer", default: "1", description: "Page number" },
@@ -424,7 +447,7 @@ export function DocsContent() {
           />
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/incoherences?status=active&limit=1`}</Code>
+          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/incoherences?status=active&detection_class=contradiction&limit=1`}</Code>
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
           <Code>{`{
@@ -436,11 +459,15 @@ export function DocsContent() {
         "b2c3d4e5-f6a7-8901-bcde-f12345678901"
       ],
       "violationType": "probability_sum",
+      "detectionClass": "contradiction",
       "severity": "0.84000000",
-      "description": "Mutually exclusive markets sum to 1.13",
+      "description": "Mutually exclusive markets exceed 100%",
       "impliedArbitrage": {
-        "expectedProfit": 0.13,
-        "strategy": "short_both"
+        "type": "logical_arbitrage",
+        "sum": 1.13,
+        "deviation": 0.13,
+        "direction": "overpriced",
+        "markets": [...]
       },
       "detectedAt": "2026-09-08T18:30:00.000Z",
       "resolvedAt": null,

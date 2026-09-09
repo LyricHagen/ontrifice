@@ -7,16 +7,18 @@ const VALID_SORTS = ["severity", "detected_at", "market_count"] as const;
 const VALID_STATUSES = ["active", "resolved", "expired"] as const;
 const VALID_VIOLATION_TYPES = [
   "probability_sum",
-  "conditional_contradiction",
+  "probability_divergence",
   "mutual_exclusion",
   "implication_violation",
 ] as const;
+const VALID_DETECTION_CLASSES = ["contradiction", "divergence"] as const;
 
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const status = params.get("status");
     const violationType = params.get("violation_type");
+    const detectionClass = params.get("detection_class");
     const sort = params.get("sort") ?? "severity";
     const order = params.get("order") ?? "desc";
     const page = Math.max(1, parseInt(params.get("page") ?? "1", 10) || 1);
@@ -53,6 +55,17 @@ export async function GET(request: NextRequest) {
         `must be one of: ${VALID_VIOLATION_TYPES.join(", ")}`,
       );
     }
+    if (
+      detectionClass &&
+      !VALID_DETECTION_CLASSES.includes(
+        detectionClass as (typeof VALID_DETECTION_CLASSES)[number],
+      )
+    ) {
+      throw ValidationError(
+        "detection_class",
+        `must be one of: ${VALID_DETECTION_CLASSES.join(", ")}`,
+      );
+    }
 
     const conditions = [];
     if (status) {
@@ -69,9 +82,17 @@ export async function GET(request: NextRequest) {
           schema.incoherences.violationType,
           violationType as
             | "probability_sum"
-            | "conditional_contradiction"
+            | "probability_divergence"
             | "mutual_exclusion"
             | "implication_violation",
+        ),
+      );
+    }
+    if (detectionClass) {
+      conditions.push(
+        eq(
+          schema.incoherences.detectionClass,
+          detectionClass as "contradiction" | "divergence",
         ),
       );
     }

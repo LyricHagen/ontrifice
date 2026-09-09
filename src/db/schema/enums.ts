@@ -32,9 +32,14 @@ export const edgeDirectionEnum = pgEnum("edge_direction", [
 
 export const violationTypeEnum = pgEnum("violation_type", [
   "probability_sum",
-  "conditional_contradiction",
+  "probability_divergence",
   "mutual_exclusion",
   "implication_violation",
+]);
+
+export const detectionClassEnum = pgEnum("detection_class", [
+  "contradiction",
+  "divergence",
 ]);
 
 export const alertStatusEnum = pgEnum("alert_status", [
