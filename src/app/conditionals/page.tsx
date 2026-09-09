@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
+import { ConditionalsInterface } from "@/components/conditionals/interface";
 
 export const metadata: Metadata = {
-  title: "Conditionals",
+  title: "Implied Conditionals",
+  description:
+    "Conditional probabilities derived from the dependency graph that no single market prices.",
 };
 
 export default function ConditionalsPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold font-mono mb-4">Conditionals</h1>
-      <p className="text-text-secondary">Coming soon.</p>
+    <div className="max-w-[960px] mx-auto px-4 py-10">
+      <h1 className="text-2xl font-bold font-mono mb-1">
+        Implied Conditionals
+      </h1>
+      <p className="text-sm text-text-secondary mb-8">
+        Conditional probabilities derived from the dependency graph that no
+        single market prices.
+      </p>
+      <ConditionalsInterface />
     </div>
   );
 }
