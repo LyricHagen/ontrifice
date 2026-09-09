@@ -11,11 +11,18 @@ interface EdgeRecord {
   id: string;
   sourceMarketId: string;
   targetMarketId: string;
-  edgeType: "semantic" | "temporal" | "structural" | "composite";
-  weight: string;
+  relationClass: "logical" | "statistical" | "semantic";
+  relationType: string;
+  score: string;
   confidence: string;
   direction: "bidirectional" | "source_leads" | "target_leads";
+  mathematicalSemantics: string | null;
   evidence: Record<string, unknown> | null;
+  modelVersion: string | null;
+  algorithmParams: Record<string, unknown> | null;
+  observedAt: Date;
+  validUntil: Date | null;
+  sampleSize: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,23 +37,6 @@ interface SubgraphResult {
   edges: EdgeRecord[];
 }
 
-function edgeKey(sourceId: string, targetId: string): string {
-  return sourceId < targetId
-    ? `${sourceId}:${targetId}`
-    : `${targetId}:${sourceId}`;
-}
-
-function getEdgeType(
-  edge: AnyEdge,
-): "semantic" | "temporal" | "structural" {
-  if ("evidence" in edge && edge.evidence !== null && typeof edge.evidence === "object") {
-    if ("cosineSimilarity" in edge.evidence) return "semantic";
-    if ("constraintType" in edge.evidence) return "structural";
-    if ("correlation7d" in edge.evidence) return "temporal";
-  }
-  return "semantic";
-}
-
 function getDirection(edge: AnyEdge): "bidirectional" | "source_leads" | "target_leads" {
   if ("direction" in edge) return edge.direction;
   return "bidirectional";
@@ -57,97 +47,77 @@ export async function buildGraph(
   temporalEdges: TemporalEdge[],
   structuralEdges: StructuralEdge[],
 ): Promise<{ created: number; updated: number }> {
-  logger.info("building unified graph", {
+  logger.info("building unified graph (separate edges per relation)", {
     semantic: semanticEdges.length,
     temporal: temporalEdges.length,
     structural: structuralEdges.length,
   });
 
-  const merged = new Map<string, {
-    sourceMarketId: string;
-    targetMarketId: string;
-    edgeType: "semantic" | "temporal" | "structural" | "composite";
-    weight: number;
-    confidence: number;
-    direction: "bidirectional" | "source_leads" | "target_leads";
-    evidence: Record<string, unknown>;
-  }>();
+  const allEdges: AnyEdge[] = [
+    ...semanticEdges,
+    ...temporalEdges,
+    ...structuralEdges,
+  ];
 
-  function addEdge(edge: AnyEdge) {
-    const key = edgeKey(edge.sourceMarketId, edge.targetMarketId);
-    const type = getEdgeType(edge);
-    const direction = getDirection(edge);
+  logger.info("total edges to persist", { total: allEdges.length });
 
-    if (merged.has(key)) {
-      const existing = merged.get(key)!;
-      existing.edgeType = "composite";
-      existing.weight = Math.max(existing.weight, edge.weight);
-      existing.confidence = Math.max(existing.confidence, edge.confidence);
-      (existing.evidence as Record<string, unknown>)[type] = edge.evidence;
-      if (direction !== "bidirectional" && existing.direction === "bidirectional") {
-        existing.direction = direction;
-      }
-    } else {
-      const source = edge.sourceMarketId < edge.targetMarketId
-        ? edge.sourceMarketId
-        : edge.targetMarketId;
-      const target = edge.sourceMarketId < edge.targetMarketId
-        ? edge.targetMarketId
-        : edge.sourceMarketId;
-
-      merged.set(key, {
-        sourceMarketId: source,
-        targetMarketId: target,
-        edgeType: type,
-        weight: edge.weight,
-        confidence: edge.confidence,
-        direction,
-        evidence: { [type]: edge.evidence },
-      });
-    }
-  }
-
-  for (const e of semanticEdges) addEdge(e);
-  for (const e of temporalEdges) addEdge(e);
-  for (const e of structuralEdges) addEdge(e);
-
-  logger.info("merged edges", { total: merged.size });
+  await db
+    .update(schema.edges)
+    .set({ validUntil: new Date() })
+    .where(sql`${schema.edges.validUntil} IS NULL`);
 
   let created = 0;
   let updated = 0;
 
-  for (const edge of merged.values()) {
-    const result = await db
-      .insert(schema.edges)
-      .values({
-        sourceMarketId: edge.sourceMarketId,
-        targetMarketId: edge.targetMarketId,
-        edgeType: edge.edgeType,
-        weight: edge.weight.toFixed(8),
-        confidence: edge.confidence.toFixed(8),
-        direction: edge.direction,
-        evidence: edge.evidence,
-      })
-      .onConflictDoUpdate({
-        target: [schema.edges.sourceMarketId, schema.edges.targetMarketId],
-        set: {
-          edgeType: edge.edgeType,
-          weight: edge.weight.toFixed(8),
-          confidence: edge.confidence.toFixed(8),
-          direction: edge.direction,
-          evidence: edge.evidence,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ id: schema.edges.id, createdAt: schema.edges.createdAt, updatedAt: schema.edges.updatedAt });
+  for (const edge of allEdges) {
+    const source = edge.sourceMarketId < edge.targetMarketId
+      ? edge.sourceMarketId
+      : edge.targetMarketId;
+    const target = edge.sourceMarketId < edge.targetMarketId
+      ? edge.targetMarketId
+      : edge.sourceMarketId;
 
-    if (result.length > 0) {
-      const r = result[0];
-      if (r.createdAt.getTime() === r.updatedAt.getTime()) {
-        created++;
-      } else {
-        updated++;
-      }
+    const existing = await db
+      .select({ id: schema.edges.id })
+      .from(schema.edges)
+      .where(
+        and(
+          eq(schema.edges.sourceMarketId, source),
+          eq(schema.edges.targetMarketId, target),
+          eq(schema.edges.relationClass, edge.relationClass),
+          eq(schema.edges.relationType, edge.relationType),
+        ),
+      )
+      .limit(1);
+
+    const values = {
+      sourceMarketId: source,
+      targetMarketId: target,
+      relationClass: edge.relationClass,
+      relationType: edge.relationType,
+      score: edge.score.toFixed(8),
+      confidence: edge.confidence.toFixed(8),
+      direction: getDirection(edge),
+      mathematicalSemantics: edge.mathematicalSemantics,
+      evidence: edge.evidence as Record<string, unknown>,
+      modelVersion: edge.modelVersion,
+      algorithmParams: "algorithmParams" in edge
+        ? (edge.algorithmParams as Record<string, unknown>)
+        : null,
+      sampleSize: "sampleSize" in edge ? (edge.sampleSize as number) : null,
+      observedAt: new Date(),
+      validUntil: null,
+    };
+
+    if (existing.length > 0) {
+      await db
+        .update(schema.edges)
+        .set({ ...values, updatedAt: new Date() })
+        .where(eq(schema.edges.id, existing[0].id));
+      updated++;
+    } else {
+      await db.insert(schema.edges).values(values);
+      created++;
     }
   }
 
@@ -158,6 +128,7 @@ export async function buildGraph(
 export async function getNeighbors(
   marketId: string,
   depth: number = 1,
+  relationClass?: "logical" | "statistical" | "semantic",
 ): Promise<SubgraphResult> {
   const visitedMarkets = new Set<string>([marketId]);
   const allEdges: EdgeRecord[] = [];
@@ -166,15 +137,21 @@ export async function getNeighbors(
   for (let d = 0; d < depth; d++) {
     if (frontier.length === 0) break;
 
+    const conditions = [
+      or(
+        inArray(schema.edges.sourceMarketId, frontier),
+        inArray(schema.edges.targetMarketId, frontier),
+      )!,
+    ];
+
+    if (relationClass) {
+      conditions.push(eq(schema.edges.relationClass, relationClass));
+    }
+
     const edgesForFrontier = await db
       .select()
       .from(schema.edges)
-      .where(
-        or(
-          inArray(schema.edges.sourceMarketId, frontier),
-          inArray(schema.edges.targetMarketId, frontier),
-        ),
-      );
+      .where(and(...conditions));
 
     const nextFrontier: string[] = [];
 
@@ -213,16 +190,24 @@ export async function getNeighbors(
 export async function getPath(
   sourceId: string,
   targetId: string,
-): Promise<{ path: string[]; totalWeight: number } | null> {
-  const allEdges = await db.select().from(schema.edges);
+  relationClass?: "logical" | "statistical" | "semantic",
+): Promise<{ path: string[]; totalScore: number } | null> {
+  const conditions = [];
+  if (relationClass) {
+    conditions.push(eq(schema.edges.relationClass, relationClass));
+  }
 
-  const adjacency = new Map<string, Array<{ neighbor: string; weight: number }>>();
+  const allEdges = conditions.length > 0
+    ? await db.select().from(schema.edges).where(and(...conditions))
+    : await db.select().from(schema.edges);
+
+  const adjacency = new Map<string, Array<{ neighbor: string; score: number }>>();
   for (const edge of allEdges) {
     if (!adjacency.has(edge.sourceMarketId)) adjacency.set(edge.sourceMarketId, []);
     if (!adjacency.has(edge.targetMarketId)) adjacency.set(edge.targetMarketId, []);
-    const w = parseFloat(edge.weight);
-    adjacency.get(edge.sourceMarketId)!.push({ neighbor: edge.targetMarketId, weight: w });
-    adjacency.get(edge.targetMarketId)!.push({ neighbor: edge.sourceMarketId, weight: w });
+    const s = parseFloat(edge.score);
+    adjacency.get(edge.sourceMarketId)!.push({ neighbor: edge.targetMarketId, score: s });
+    adjacency.get(edge.targetMarketId)!.push({ neighbor: edge.sourceMarketId, score: s });
   }
 
   if (!adjacency.has(sourceId) || !adjacency.has(targetId)) return null;
@@ -250,9 +235,9 @@ export async function getPath(
     visited.add(minNode);
 
     const neighbors = adjacency.get(minNode) ?? [];
-    for (const { neighbor, weight } of neighbors) {
+    for (const { neighbor, score } of neighbors) {
       if (visited.has(neighbor)) continue;
-      const inverseDist = 1 / weight;
+      const inverseDist = 1 / score;
       const newDist = minDist + inverseDist;
       if (newDist < (dist.get(neighbor) ?? Infinity)) {
         dist.set(neighbor, newDist);
@@ -272,18 +257,28 @@ export async function getPath(
 
   if (path[0] !== sourceId) return null;
 
-  let totalWeight = 0;
+  let totalScore = 0;
   for (let i = 0; i < path.length - 1; i++) {
     const neighbors = adjacency.get(path[i]) ?? [];
     const edge = neighbors.find((n) => n.neighbor === path[i + 1]);
-    if (edge) totalWeight += edge.weight;
+    if (edge) totalScore += edge.score;
   }
 
-  return { path, totalWeight };
+  return { path, totalScore };
 }
 
-export async function getCluster(marketId: string): Promise<string[]> {
-  const allEdges = await db.select().from(schema.edges);
+export async function getCluster(
+  marketId: string,
+  relationClass?: "logical" | "statistical" | "semantic",
+): Promise<string[]> {
+  const conditions = [];
+  if (relationClass) {
+    conditions.push(eq(schema.edges.relationClass, relationClass));
+  }
+
+  const allEdges = conditions.length > 0
+    ? await db.select().from(schema.edges).where(and(...conditions))
+    : await db.select().from(schema.edges);
 
   const adjacency = new Map<string, Set<string>>();
   for (const edge of allEdges) {
@@ -314,18 +309,22 @@ export async function getCluster(marketId: string): Promise<string[]> {
 }
 
 export async function getEdges(filters: {
-  edgeType?: "semantic" | "temporal" | "structural" | "composite";
-  minWeight?: number;
+  relationClass?: "logical" | "statistical" | "semantic";
+  relationType?: string;
+  minScore?: number;
   marketId?: string;
   limit?: number;
 }): Promise<EdgeRecord[]> {
   const conditions = [];
 
-  if (filters.edgeType) {
-    conditions.push(eq(schema.edges.edgeType, filters.edgeType));
+  if (filters.relationClass) {
+    conditions.push(eq(schema.edges.relationClass, filters.relationClass));
   }
-  if (filters.minWeight !== undefined) {
-    conditions.push(sql`${schema.edges.weight}::numeric >= ${filters.minWeight}`);
+  if (filters.relationType) {
+    conditions.push(eq(schema.edges.relationType, filters.relationType));
+  }
+  if (filters.minScore !== undefined) {
+    conditions.push(sql`${schema.edges.score}::numeric >= ${filters.minScore}`);
   }
   if (filters.marketId) {
     conditions.push(

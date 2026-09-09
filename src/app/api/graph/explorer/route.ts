@@ -3,6 +3,8 @@ import { eq, and, sql, ilike, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { handleApiError, ValidationError } from "@/lib/errors";
 
+const VALID_CLASSES = ["logical", "statistical", "semantic"] as const;
+
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
@@ -10,13 +12,13 @@ export async function GET(request: NextRequest) {
     const search = params.get("search");
     const platform = params.get("platform");
     const category = params.get("category");
-    const edgeType = params.get("edge_type") as
+    const relationClass = params.get("relation_class") as
+      | "logical"
+      | "statistical"
       | "semantic"
-      | "temporal"
-      | "structural"
-      | "composite"
       | null;
-    const minWeight = params.get("min_weight");
+    const relationType = params.get("relation_type");
+    const minScore = params.get("min_score");
 
     const marketConditions = [];
     if (platform) {
@@ -36,7 +38,8 @@ export async function GET(request: NextRequest) {
       }
     }
     if (search) {
-      marketConditions.push(ilike(schema.markets.title, `%${search}%`));
+      const escaped = search.replace(/[%_\\]/g, "\\$&");
+      marketConditions.push(ilike(schema.markets.title, `%${escaped}%`));
     }
 
     const marketWhere =
@@ -69,26 +72,28 @@ export async function GET(request: NextRequest) {
         inArray(schema.edges.targetMarketId, marketIds),
       )!,
     ];
-    if (edgeType) {
-      const valid = ["semantic", "temporal", "structural", "composite"];
-      if (!valid.includes(edgeType)) {
+    if (relationClass) {
+      if (!VALID_CLASSES.includes(relationClass)) {
         throw ValidationError(
-          "edge_type",
-          `must be one of: ${valid.join(", ")}`,
+          "relation_class",
+          `must be one of: ${VALID_CLASSES.join(", ")}`,
         );
       }
-      edgeConditions.push(eq(schema.edges.edgeType, edgeType));
+      edgeConditions.push(eq(schema.edges.relationClass, relationClass));
     }
-    if (minWeight) {
-      const w = parseFloat(minWeight);
-      if (isNaN(w) || w < 0 || w > 1) {
+    if (relationType) {
+      edgeConditions.push(eq(schema.edges.relationType, relationType));
+    }
+    if (minScore) {
+      const s = parseFloat(minScore);
+      if (isNaN(s) || s < -1 || s > 1) {
         throw ValidationError(
-          "min_weight",
-          "must be a number between 0 and 1",
+          "min_score",
+          "must be a number between -1 and 1",
         );
       }
       edgeConditions.push(
-        sql`${schema.edges.weight}::numeric >= ${w}`,
+        sql`${schema.edges.score}::numeric >= ${s}`,
       );
     }
 
@@ -97,9 +102,14 @@ export async function GET(request: NextRequest) {
         id: schema.edges.id,
         sourceMarketId: schema.edges.sourceMarketId,
         targetMarketId: schema.edges.targetMarketId,
-        edgeType: schema.edges.edgeType,
-        weight: schema.edges.weight,
+        relationClass: schema.edges.relationClass,
+        relationType: schema.edges.relationType,
+        score: schema.edges.score,
+        confidence: schema.edges.confidence,
         direction: schema.edges.direction,
+        mathematicalSemantics: schema.edges.mathematicalSemantics,
+        modelVersion: schema.edges.modelVersion,
+        sampleSize: schema.edges.sampleSize,
       })
       .from(schema.edges)
       .where(and(...edgeConditions));

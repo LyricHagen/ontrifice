@@ -128,7 +128,7 @@ export function DetailPanel({
                 <div className="flex flex-col gap-1.5">
                   {detail.edges
                     .sort(
-                      (a, b) => parseFloat(b.weight) - parseFloat(a.weight),
+                      (a, b) => parseFloat(b.score) - parseFloat(a.score),
                     )
                     .map((edge) => {
                       const neighborId =
@@ -160,8 +160,8 @@ export function DetailPanel({
                           <span className="flex-1 min-w-0">
                             <span className="block truncate">{title}</span>
                             <span className="text-text-secondary">
-                              {edge.edgeType} &middot;{" "}
-                              {parseFloat(edge.weight).toFixed(3)}
+                              {edge.relationClass}/{edge.relationType} &middot;{" "}
+                              {parseFloat(edge.score).toFixed(3)}
                             </span>
                           </span>
                         </button>

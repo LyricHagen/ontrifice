@@ -9,7 +9,7 @@ import type {
   MarketDetail,
   Filters,
 } from "./types";
-import { PLATFORM_COLORS, EDGE_TYPE_COLORS } from "./types";
+import { PLATFORM_COLORS, RELATION_CLASS_COLORS } from "./types";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -29,11 +29,11 @@ function buildQueryParams(filters: Filters): string {
   if (filters.categories.size > 0) {
     params.set("category", Array.from(filters.categories).join(","));
   }
-  if (filters.edgeTypes.size === 1) {
-    params.set("edge_type", Array.from(filters.edgeTypes)[0]);
+  if (filters.relationClasses.size === 1) {
+    params.set("relation_class", Array.from(filters.relationClasses)[0]);
   }
-  if (filters.minWeight > 0) {
-    params.set("min_weight", filters.minWeight.toFixed(2));
+  if (filters.minScore > 0) {
+    params.set("min_score", filters.minScore.toFixed(2));
   }
   return params.toString();
 }
@@ -47,8 +47,8 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
     search: "",
     platforms: new Set(),
     categories: new Set(),
-    edgeTypes: new Set(),
-    minWeight: 0,
+    relationClasses: new Set(),
+    minScore: 0,
   });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -116,11 +116,11 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
   const filteredEdges = useMemo(() => {
     if (!data) return [];
     let edges = data.edges;
-    if (filters.edgeTypes.size > 1) {
-      edges = edges.filter((e) => filters.edgeTypes.has(e.edgeType));
+    if (filters.relationClasses.size > 1) {
+      edges = edges.filter((e) => filters.relationClasses.has(e.relationClass));
     }
     return edges;
-  }, [data, filters.edgeTypes]);
+  }, [data, filters.relationClasses]);
 
   const categories = useMemo(() => {
     if (!data) return [];
@@ -294,7 +294,7 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
             onNodeClick={handleNodeClick}
             onNodeHover={handleNodeHover}
             platformColors={PLATFORM_COLORS}
-            edgeTypeColors={EDGE_TYPE_COLORS}
+            relationClassColors={RELATION_CLASS_COLORS}
             centerOnNodeRef={centerOnNodeRef}
           />
         )}

@@ -5,10 +5,15 @@ import { logger } from "@/lib/logger";
 export interface StructuralEdge {
   sourceMarketId: string;
   targetMarketId: string;
-  weight: number;
+  relationClass: "logical";
+  relationType: "mutually_exclusive" | "implies" | "temporal_precondition";
+  score: number;
   confidence: number;
+  mathematicalSemantics: string;
+  modelVersion: string;
   evidence: {
     constraintType: "mutual_exclusion" | "implication" | "temporal_ordering";
+    collectivelyExhaustive?: boolean;
     groupId?: string;
     reason: string;
   };
@@ -110,12 +115,17 @@ function detectMutualExclusion(markets: MarketRecord[]): StructuralEdge[] {
         edges.push({
           sourceMarketId: group[i].id,
           targetMarketId: group[j].id,
-          weight: 0.95,
+          relationClass: "logical",
+          relationType: "mutually_exclusive",
+          score: 0.95,
           confidence: 0.95,
+          mathematicalSemantics: "P(A AND B) = 0; outcomes are mutually exclusive and collectively exhaustive within this group",
+          modelVersion: "structural-v1",
           evidence: {
             constraintType: "mutual_exclusion",
+            collectivelyExhaustive: true,
             groupId,
-            reason: `both markets belong to NegRisk group ${groupId}, probabilities should sum to ~1`,
+            reason: `both markets belong to NegRisk group ${groupId}, probabilities must sum to 1`,
           },
         });
       }
@@ -131,12 +141,17 @@ function detectMutualExclusion(markets: MarketRecord[]): StructuralEdge[] {
         edges.push({
           sourceMarketId: group[i].id,
           targetMarketId: group[j].id,
-          weight: 0.85,
+          relationClass: "logical",
+          relationType: "mutually_exclusive",
+          score: 0.85,
           confidence: 0.8,
+          mathematicalSemantics: "P(A AND B) = 0; outcomes are mutually exclusive but may not be collectively exhaustive",
+          modelVersion: "structural-v1",
           evidence: {
             constraintType: "mutual_exclusion",
+            collectivelyExhaustive: false,
             groupId: eventId,
-            reason: `both markets belong to event ${eventId}, likely mutually exclusive outcomes`,
+            reason: `both markets belong to event ${eventId}, likely mutually exclusive outcomes (sum <= 1)`,
           },
         });
       }
@@ -175,8 +190,12 @@ function detectImplications(markets: MarketRecord[]): StructuralEdge[] {
           edges.push({
             sourceMarketId: markets[i].id,
             targetMarketId: markets[j].id,
-            weight: 0.8,
+            relationClass: "logical",
+            relationType: "implies",
+            score: 1.0,
             confidence: 0.7,
+            mathematicalSemantics: "if source resolves YES, target must resolve YES",
+            modelVersion: "structural-v1",
             evidence: {
               constraintType: "implication",
               reason: pattern.description,
@@ -206,8 +225,12 @@ function detectTemporalOrdering(markets: MarketRecord[]): StructuralEdge[] {
           edges.push({
             sourceMarketId: markets[i].id,
             targetMarketId: markets[j].id,
-            weight: 0.75,
+            relationClass: "logical",
+            relationType: "temporal_precondition",
+            score: 0.75,
             confidence: 0.65,
+            mathematicalSemantics: "source event must resolve before target event can resolve",
+            modelVersion: "structural-v1",
             evidence: {
               constraintType: "temporal_ordering",
               reason: pattern.description,

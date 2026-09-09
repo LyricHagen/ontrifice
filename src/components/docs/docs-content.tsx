@@ -326,10 +326,13 @@ export function DocsContent() {
       "id": "e1e2e3e4-e5e6-7890-abcd-ef1234567890",
       "sourceMarketId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "targetMarketId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "edgeType": "semantic",
-      "weight": "0.85000000",
+      "relationClass": "semantic",
+      "relationType": "same_topic",
+      "score": "0.85000000",
       "confidence": "0.92000000",
       "direction": "bidirectional",
+      "mathematicalSemantics": "tfidf_cosine=0.8500; shared category 'economics'",
+      "modelVersion": "tfidf-v1",
       "evidence": {},
       "createdAt": "2026-08-20T12:00:00.000Z",
       "updatedAt": "2026-09-08T14:22:00.000Z"
@@ -366,14 +369,15 @@ export function DocsContent() {
             params={[
               { name: "market_id", type: "uuid", description: "Return the subgraph around this market" },
               { name: "depth", type: "integer", default: "1", description: "Traversal depth when market_id is set (1-5)" },
-              { name: "edge_type", type: "string", description: "Filter by type: semantic, temporal, structural, composite" },
-              { name: "min_weight", type: "number", description: "Minimum edge weight (0-1)" },
+              { name: "relation_class", type: "string", description: "Filter by class: logical, statistical, semantic" },
+              { name: "relation_type", type: "string", description: "Filter by type within class (e.g., correlation, implies, same_entity)" },
+              { name: "min_score", type: "number", description: "Minimum edge score (-1 to 1)" },
               { name: "limit", type: "integer", default: "100", description: "Max edges to return (max 500)" },
             ]}
           />
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/edges?edge_type=semantic&min_weight=0.7&limit=2`}</Code>
+          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/edges?relation_class=semantic&min_score=0.7&limit=2`}</Code>
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
           <Code>{`{
@@ -382,10 +386,14 @@ export function DocsContent() {
       "id": "e1e2e3e4-e5e6-7890-abcd-ef1234567890",
       "sourceMarketId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "targetMarketId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "edgeType": "semantic",
-      "weight": "0.85000000",
+      "relationClass": "semantic",
+      "relationType": "same_topic",
+      "score": "0.85000000",
       "confidence": "0.92000000",
       "direction": "bidirectional",
+      "mathematicalSemantics": "tfidf_cosine=0.8500; shared category 'economics'",
+      "modelVersion": "tfidf-v1",
+      "sampleSize": null,
       "evidence": {},
       "createdAt": "2026-08-20T12:00:00.000Z",
       "updatedAt": "2026-09-08T14:22:00.000Z"

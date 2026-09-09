@@ -18,11 +18,10 @@ export const resolutionEnum = pgEnum("resolution", [
   "unresolved",
 ]);
 
-export const edgeTypeEnum = pgEnum("edge_type", [
+export const relationClassEnum = pgEnum("relation_class", [
+  "logical",
+  "statistical",
   "semantic",
-  "temporal",
-  "structural",
-  "composite",
 ]);
 
 export const edgeDirectionEnum = pgEnum("edge_direction", [

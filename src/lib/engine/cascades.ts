@@ -113,7 +113,7 @@ async function findNeighborMovements(
         (e.targetMarketId === marketId && e.sourceMarketId === neighbor.id),
     );
 
-    const weight = edge ? parseFloat(edge.weight) : 0;
+    const weight = edge ? parseFloat(edge.score) : 0;
 
     const snapshots = await db
       .select({ probability: schema.marketSnapshots.probability })

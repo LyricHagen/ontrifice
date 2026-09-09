@@ -1,3 +1,8 @@
+// WARNING: TF-IDF cosine similarity only detects textual overlap, not economic or logical
+// relationships. A high score here means 'these questions use similar words', not 'these events
+// are meaningfully related.' This is a prototype; a production system would use
+// settlement-verified equivalence or an NLI model.
+
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
@@ -143,13 +148,27 @@ const CATEGORY_ENTITY_BONUS = 0.1;
 export interface SemanticEdge {
   sourceMarketId: string;
   targetMarketId: string;
-  weight: number;
+  relationClass: "semantic";
+  relationType: "same_entity" | "same_topic" | "similar_question";
+  score: number;
   confidence: number;
+  mathematicalSemantics: string;
+  modelVersion: string;
   evidence: {
     cosineSimilarity: number;
     sharedEntities: string[];
     categoryMatch: boolean;
   };
+}
+
+function classifyRelationType(
+  similarity: number,
+  sharedEntities: string[],
+  categoryMatch: boolean,
+): "same_entity" | "same_topic" | "similar_question" {
+  if (sharedEntities.length >= 2 && similarity > 0.6) return "same_entity";
+  if (categoryMatch && similarity > 0.4) return "same_topic";
+  return "similar_question";
 }
 
 export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
@@ -227,11 +246,22 @@ export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
     similarity = Math.min(similarity, 1);
 
     if (similarity >= SEMANTIC_THRESHOLD) {
+      const relationType = classifyRelationType(similarity, shared, categoryMatch);
+      const entityDesc = shared.length > 0
+        ? `both contracts reference '${shared.join("', '")}'`
+        : categoryMatch
+          ? `shared category '${activeMarkets[i].category}'`
+          : "textual overlap in question phrasing";
+
       edges.push({
         sourceMarketId: activeMarkets[i].id,
         targetMarketId: activeMarkets[j].id,
-        weight: similarity,
+        relationClass: "semantic",
+        relationType,
+        score: similarity,
         confidence: Math.min(similarity * 1.2, 1),
+        mathematicalSemantics: `tfidf_cosine=${similarity.toFixed(4)}; ${entityDesc}`,
+        modelVersion: "tfidf-v1",
         evidence: {
           cosineSimilarity: similarity,
           sharedEntities: shared,

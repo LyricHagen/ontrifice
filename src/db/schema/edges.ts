@@ -2,12 +2,13 @@ import {
   pgTable,
   uuid,
   decimal,
+  text,
+  integer,
   timestamp,
   jsonb,
-  uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { edgeTypeEnum, edgeDirectionEnum } from "./enums";
+import { relationClassEnum, edgeDirectionEnum } from "./enums";
 import { markets } from "./markets";
 
 export const edges = pgTable(
@@ -20,13 +21,22 @@ export const edges = pgTable(
     targetMarketId: uuid("target_market_id")
       .notNull()
       .references(() => markets.id, { onDelete: "cascade" }),
-    edgeType: edgeTypeEnum("edge_type").notNull(),
-    weight: decimal("weight", { precision: 10, scale: 8 }).notNull(),
+    relationClass: relationClassEnum("relation_class").notNull(),
+    relationType: text("relation_type").notNull(),
+    score: decimal("score", { precision: 10, scale: 8 }).notNull(),
     confidence: decimal("confidence", { precision: 10, scale: 8 }).notNull(),
     direction: edgeDirectionEnum("direction")
       .notNull()
       .default("bidirectional"),
+    mathematicalSemantics: text("mathematical_semantics"),
     evidence: jsonb("evidence").$type<Record<string, unknown>>(),
+    modelVersion: text("model_version"),
+    algorithmParams: jsonb("algorithm_params").$type<Record<string, unknown>>(),
+    observedAt: timestamp("observed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    sampleSize: integer("sample_size"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -35,11 +45,14 @@ export const edges = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("edges_source_target_idx").on(
-      table.sourceMarketId,
-      table.targetMarketId,
-    ),
     index("edges_source_idx").on(table.sourceMarketId),
     index("edges_target_idx").on(table.targetMarketId),
+    index("edges_relation_class_idx").on(table.relationClass),
+    index("edges_relation_type_idx").on(table.relationType),
+    index("edges_source_target_class_idx").on(
+      table.sourceMarketId,
+      table.targetMarketId,
+      table.relationClass,
+    ),
   ],
 );

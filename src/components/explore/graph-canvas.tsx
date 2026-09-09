@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, type MutableRefObject } from "react";
 import * as d3 from "d3";
-import type { MarketNode, GraphEdge, PLATFORM_COLORS, EDGE_TYPE_COLORS } from "./types";
+import type { MarketNode, GraphEdge, PLATFORM_COLORS, RELATION_CLASS_COLORS } from "./types";
 
 interface SimNode extends MarketNode {
   x: number;
@@ -11,8 +11,8 @@ interface SimNode extends MarketNode {
 }
 
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
-  edgeType: string;
-  weight: number;
+  relationClass: string;
+  score: number;
   direction: string;
   id: string;
 }
@@ -24,7 +24,7 @@ interface GraphCanvasProps {
   onNodeClick: (id: string) => void;
   onNodeHover: (id: string | null) => void;
   platformColors: typeof PLATFORM_COLORS;
-  edgeTypeColors: typeof EDGE_TYPE_COLORS;
+  relationClassColors: typeof RELATION_CLASS_COLORS;
   centerOnNodeRef?: MutableRefObject<((id: string) => void) | null>;
 }
 
@@ -40,7 +40,7 @@ export function GraphCanvas({
   onNodeClick,
   onNodeHover,
   platformColors,
-  edgeTypeColors,
+  relationClassColors,
   centerOnNodeRef,
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,9 +90,9 @@ export function GraphCanvas({
     for (const link of linksRef.current) {
       const source = link.source as SimNode;
       const target = link.target as SimNode;
-      const colors = edgeTypeColors[link.edgeType] ?? edgeTypeColors.semantic;
+      const colors = relationClassColors[link.relationClass] ?? relationClassColors.semantic;
       const baseColor = isDark ? colors.dark : colors.light;
-      let opacity = colors.opacity * link.weight;
+      let opacity = colors.opacity * Math.abs(link.score);
 
       if (hoveredId) {
         opacity = hoveredEdges.has(link.id) ? Math.max(opacity, 0.6) : opacity * 0.15;
@@ -170,7 +170,7 @@ export function GraphCanvas({
     }
 
     ctx.restore();
-  }, [selectedId, platformColors, edgeTypeColors]);
+  }, [selectedId, platformColors, relationClassColors]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -198,8 +198,8 @@ export function GraphCanvas({
       .map((e) => ({
         source: nodeMap.get(e.sourceMarketId)!,
         target: nodeMap.get(e.targetMarketId)!,
-        edgeType: e.edgeType,
-        weight: parseFloat(e.weight),
+        relationClass: e.relationClass,
+        score: parseFloat(e.score),
         direction: e.direction,
         id: e.id,
       }));
@@ -217,8 +217,8 @@ export function GraphCanvas({
         d3
           .forceLink<SimNode, SimLink>(links)
           .id((d) => d.id)
-          .distance((d) => 80 + (1 - d.weight) * 120)
-          .strength((d) => d.weight * 0.5),
+          .distance((d) => 80 + (1 - Math.abs(d.score)) * 120)
+          .strength((d) => Math.abs(d.score) * 0.5),
       )
       .force("charge", d3.forceManyBody().strength(-200).distanceMax(400))
       .force("center", d3.forceCenter(cx, cy))

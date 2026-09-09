@@ -143,7 +143,7 @@ async function findStrongestPath(
 
   const adjacency = new Map<string, Array<{ neighbor: string; weight: number }>>();
   for (const edge of allEdges) {
-    const w = parseFloat(edge.weight);
+    const w = parseFloat(edge.score);
     if (!adjacency.has(edge.sourceMarketId)) adjacency.set(edge.sourceMarketId, []);
     if (!adjacency.has(edge.targetMarketId)) adjacency.set(edge.targetMarketId, []);
     adjacency.get(edge.sourceMarketId)!.push({ neighbor: edge.targetMarketId, weight: w });

@@ -20,9 +20,14 @@ export interface GraphEdge {
   id: string;
   sourceMarketId: string;
   targetMarketId: string;
-  edgeType: "semantic" | "temporal" | "structural" | "composite";
-  weight: string;
+  relationClass: "logical" | "statistical" | "semantic";
+  relationType: string;
+  score: string;
+  confidence: string;
   direction: "bidirectional" | "source_leads" | "target_leads";
+  mathematicalSemantics: string | null;
+  modelVersion: string | null;
+  sampleSize: number | null;
 }
 
 export interface GraphData {
@@ -47,8 +52,9 @@ export interface MarketDetail {
     id: string;
     sourceMarketId: string;
     targetMarketId: string;
-    edgeType: string;
-    weight: string;
+    relationClass: string;
+    relationType: string;
+    score: string;
     direction: string;
   }>;
   connectedMarkets: Array<{
@@ -63,8 +69,8 @@ export interface Filters {
   search: string;
   platforms: Set<string>;
   categories: Set<string>;
-  edgeTypes: Set<string>;
-  minWeight: number;
+  relationClasses: Set<string>;
+  minScore: number;
 }
 
 export const PLATFORM_COLORS: Record<string, string> = {
@@ -73,9 +79,8 @@ export const PLATFORM_COLORS: Record<string, string> = {
   limitless: "#a0522d",
 };
 
-export const EDGE_TYPE_COLORS: Record<string, { dark: string; light: string; opacity: number }> = {
+export const RELATION_CLASS_COLORS: Record<string, { dark: string; light: string; opacity: number }> = {
   semantic: { dark: "#e5e5e5", light: "#0a0a0a", opacity: 0.2 },
-  temporal: { dark: "#4a7cff", light: "#4a7cff", opacity: 0.3 },
-  structural: { dark: "#ffffff", light: "#000000", opacity: 0.4 },
-  composite: { dark: "#4a7cff", light: "#4a7cff", opacity: 0.5 },
+  statistical: { dark: "#4a7cff", light: "#4a7cff", opacity: 0.3 },
+  logical: { dark: "#ffffff", light: "#000000", opacity: 0.4 },
 };

@@ -2,45 +2,57 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError, ValidationError } from "@/lib/errors";
 import { getNeighbors, getEdges } from "@/lib/engine/graph";
 
+const VALID_CLASSES = ["logical", "statistical", "semantic"] as const;
+
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const marketId = params.get("market_id");
     const depth = parseInt(params.get("depth") ?? "1", 10);
-    const edgeType = params.get("edge_type") as
+    const relationClass = params.get("relation_class") as
+      | "logical"
+      | "statistical"
       | "semantic"
-      | "temporal"
-      | "structural"
-      | "composite"
       | null;
-    const minWeight = params.get("min_weight");
+    const relationType = params.get("relation_type");
+    const minScore = params.get("min_score");
 
     if (marketId) {
       if (depth < 1 || depth > 5) {
         throw ValidationError("depth", "must be between 1 and 5");
       }
 
-      const subgraph = await getNeighbors(marketId, depth);
+      const rc = relationClass ?? undefined;
+      if (rc && !VALID_CLASSES.includes(rc)) {
+        throw ValidationError(
+          "relation_class",
+          `must be one of: ${VALID_CLASSES.join(", ")}`,
+        );
+      }
+
+      const subgraph = await getNeighbors(marketId, depth, rc);
       return NextResponse.json(subgraph);
     }
 
     const filters: Parameters<typeof getEdges>[0] = {};
-    if (edgeType) {
-      const valid = ["semantic", "temporal", "structural", "composite"];
-      if (!valid.includes(edgeType)) {
+    if (relationClass) {
+      if (!VALID_CLASSES.includes(relationClass)) {
         throw ValidationError(
-          "edge_type",
-          `must be one of: ${valid.join(", ")}`,
+          "relation_class",
+          `must be one of: ${VALID_CLASSES.join(", ")}`,
         );
       }
-      filters.edgeType = edgeType;
+      filters.relationClass = relationClass;
     }
-    if (minWeight) {
-      const w = parseFloat(minWeight);
-      if (isNaN(w) || w < 0 || w > 1) {
-        throw ValidationError("min_weight", "must be a number between 0 and 1");
+    if (relationType) {
+      filters.relationType = relationType;
+    }
+    if (minScore) {
+      const s = parseFloat(minScore);
+      if (isNaN(s) || s < -1 || s > 1) {
+        throw ValidationError("min_score", "must be a number between -1 and 1");
       }
-      filters.minWeight = w;
+      filters.minScore = s;
     }
 
     const limit = parseInt(params.get("limit") ?? "100", 10);

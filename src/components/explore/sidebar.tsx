@@ -47,8 +47,8 @@ export function Sidebar({
       search: "",
       platforms: new Set(),
       categories: new Set(),
-      edgeTypes: new Set(),
-      minWeight: 0,
+      relationClasses: new Set(),
+      minScore: 0,
     });
   }, [onFiltersChange]);
 
@@ -56,8 +56,8 @@ export function Sidebar({
     filters.search !== "" ||
     filters.platforms.size > 0 ||
     filters.categories.size > 0 ||
-    filters.edgeTypes.size > 0 ||
-    filters.minWeight > 0;
+    filters.relationClasses.size > 0 ||
+    filters.minScore > 0;
 
   if (collapsed) {
     return (
@@ -156,9 +156,9 @@ export function Sidebar({
 
         <div>
           <span className="block text-xs font-mono text-text-secondary mb-1.5">
-            Edge type
+            Relation class
           </span>
-          {(["semantic", "temporal", "structural", "composite"] as const).map(
+          {(["semantic", "statistical", "logical"] as const).map(
             (t) => (
               <label
                 key={t}
@@ -166,10 +166,10 @@ export function Sidebar({
               >
                 <input
                   type="checkbox"
-                  checked={filters.edgeTypes.has(t)}
+                  checked={filters.relationClasses.has(t)}
                   onChange={() =>
                     updateFilter({
-                      edgeTypes: toggleSetItem(filters.edgeTypes, t),
+                      relationClasses: toggleSetItem(filters.relationClasses, t),
                     })
                   }
                   className="accent-accent"
@@ -182,16 +182,16 @@ export function Sidebar({
 
         <div>
           <label className="block text-xs font-mono text-text-secondary mb-1">
-            Min edge weight: {filters.minWeight.toFixed(2)}
+            Min score: {filters.minScore.toFixed(2)}
           </label>
           <input
             type="range"
             min="0"
             max="1"
             step="0.01"
-            value={filters.minWeight}
+            value={filters.minScore}
             onChange={(e) =>
-              updateFilter({ minWeight: parseFloat(e.target.value) })
+              updateFilter({ minScore: parseFloat(e.target.value) })
             }
             className="w-full accent-accent"
           />
