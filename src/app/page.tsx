@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Skeleton } from "@/components/skeleton";
+import { LiveStats } from "@/components/live-stats";
 
 export const metadata: Metadata = {
   title: "Ontrifice",
+  description:
+    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts across Polymarket, Kalshi, and Limitless.",
+  openGraph: {
+    title: "Ontrifice",
+    description:
+      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.",
+    type: "website",
+    url: "https://ontrifice.dev",
+  },
 };
-
-function StatCell({ label }: { label: string }) {
-  return (
-    <div className="flex-1 py-4 px-3 text-center">
-      <div className="font-mono text-2xl font-bold mb-1">
-        <Skeleton rows={1} widths={["60%"]} />
-      </div>
-      <div className="text-xs text-text-secondary uppercase tracking-wider">
-        {label}
-      </div>
-    </div>
-  );
-}
 
 export default async function Home({
   searchParams,
@@ -32,12 +28,12 @@ export default async function Home({
         <div
           className="border border-border bg-surface px-4 py-3 text-sm text-text-secondary mb-8"
           style={{ borderRadius: "2px" }}
+          role="status"
         >
           Your account has been deleted.
         </div>
       )}
 
-      {/* Header */}
       <header className="mb-16">
         <h1 className="font-mono text-4xl font-bold mb-4">Ontrifice</h1>
         <p className="text-lg mb-2">
@@ -50,7 +46,6 @@ export default async function Home({
         </p>
       </header>
 
-      {/* The Problem */}
       <section className="mb-16">
         <h2 className="font-mono text-sm text-muted uppercase tracking-wider mb-6">
           The problem
@@ -77,7 +72,6 @@ export default async function Home({
         </div>
       </section>
 
-      {/* What Ontrifice Does */}
       <section className="mb-16">
         <h2 className="font-mono text-sm text-muted uppercase tracking-wider mb-6">
           What it does
@@ -126,16 +120,10 @@ export default async function Home({
         </dl>
       </section>
 
-      {/* Live Stats */}
       <section className="mb-16">
-        <div className="border border-border flex divide-x divide-border">
-          <StatCell label="Markets tracked" />
-          <StatCell label="Active edges" />
-          <StatCell label="Open incoherences" />
-        </div>
+        <LiveStats />
       </section>
 
-      {/* CTA */}
       <section className="mb-16 flex gap-4">
         <Link
           href="/explore"
@@ -153,7 +141,6 @@ export default async function Home({
         </Link>
       </section>
 
-      {/* Data Sources */}
       <section className="text-sm text-text-secondary border-t border-border pt-6">
         <p>
           Built on data from{" "}

@@ -1,5 +1,5 @@
 import { db, schema } from "@/db";
-import { eq, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/errors";
 

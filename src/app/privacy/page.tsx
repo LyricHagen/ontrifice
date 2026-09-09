@@ -3,6 +3,13 @@ import { TableOfContents } from "@/components/table-of-contents";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
+  description: "How Ontrifice collects, uses, and protects your data.",
+  openGraph: {
+    title: "Privacy Policy | Ontrifice",
+    description: "How Ontrifice collects, uses, and protects your data.",
+    type: "website",
+    url: "https://ontrifice.dev/privacy",
+  },
 };
 
 export default function PrivacyPage() {

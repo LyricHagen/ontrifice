@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, ilike, sql, desc, asc, and, count } from "drizzle-orm";
+import { eq, ilike, desc, asc, and, count } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { handleApiError, ValidationError } from "@/lib/errors";
 

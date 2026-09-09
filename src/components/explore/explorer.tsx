@@ -8,8 +8,6 @@ import type {
   GraphData,
   MarketDetail,
   Filters,
-  MarketNode,
-  GraphEdge,
 } from "./types";
 import { PLATFORM_COLORS, EDGE_TYPE_COLORS } from "./types";
 
@@ -40,7 +38,7 @@ function buildQueryParams(filters: Filters): string {
   return params.toString();
 }
 
-export function Explorer() {
+export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,9 +58,11 @@ export function Explorer() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [focusHandled, setFocusHandled] = useState(false);
 
   const debouncedSearch = useDebounce(filters.search, 300);
   const abortRef = useRef<AbortController | null>(null);
+  const centerOnNodeRef = useRef<((id: string) => void) | null>(null);
 
   useEffect(() => {
     function checkMobile() {
@@ -170,6 +170,26 @@ export function Explorer() {
     setDetailError(null);
   }, []);
 
+  useEffect(() => {
+    if (
+      focusMarketId &&
+      !focusHandled &&
+      !loading &&
+      data &&
+      data.markets.length > 0
+    ) {
+      const node = data.markets.find((m) => m.id === focusMarketId);
+      if (node) {
+        handleNodeClick(node.id);
+        setTimeout(() => {
+          centerOnNodeRef.current?.(node.id);
+        }, 500);
+      }
+      setFocusHandled(true);
+    }
+  }, [focusMarketId, focusHandled, loading, data, handleNodeClick]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleNodeHover = useCallback((_id: string | null) => {}, []);
 
   return (
@@ -246,7 +266,7 @@ export function Explorer() {
                 }}
                 className="font-mono text-xs text-accent"
               >
-                Retry
+                Retry loading graph
               </button>
             </div>
           </div>
@@ -275,6 +295,7 @@ export function Explorer() {
             onNodeHover={handleNodeHover}
             platformColors={PLATFORM_COLORS}
             edgeTypeColors={EDGE_TYPE_COLORS}
+            centerOnNodeRef={centerOnNodeRef}
           />
         )}
 
@@ -283,6 +304,7 @@ export function Explorer() {
             onClick={() => setSidebarOpen(true)}
             className="absolute top-3 left-3 z-20 bg-surface border border-border px-2 py-1.5 text-xs font-mono text-text-secondary"
             style={{ borderRadius: "2px" }}
+            aria-label="Open filters"
           >
             Filters
           </button>

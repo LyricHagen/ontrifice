@@ -8,6 +8,13 @@ import { SettingsContent } from "@/components/settings-content";
 
 export const metadata: Metadata = {
   title: "Settings",
+  description: "Manage your Ontrifice account, API keys, and preferences.",
+  openGraph: {
+    title: "Settings | Ontrifice",
+    description: "Manage your Ontrifice account, API keys, and preferences.",
+    type: "website",
+    url: "https://ontrifice.dev/settings",
+  },
 };
 
 export default async function SettingsPage() {

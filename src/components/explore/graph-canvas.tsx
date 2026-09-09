@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, type MutableRefObject } from "react";
 import * as d3 from "d3";
 import type { MarketNode, GraphEdge, PLATFORM_COLORS, EDGE_TYPE_COLORS } from "./types";
 
@@ -25,6 +25,7 @@ interface GraphCanvasProps {
   onNodeHover: (id: string | null) => void;
   platformColors: typeof PLATFORM_COLORS;
   edgeTypeColors: typeof EDGE_TYPE_COLORS;
+  centerOnNodeRef?: MutableRefObject<((id: string) => void) | null>;
 }
 
 function getTheme(): "dark" | "light" {
@@ -40,6 +41,7 @@ export function GraphCanvas({
   onNodeHover,
   platformColors,
   edgeTypeColors,
+  centerOnNodeRef,
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,6 +52,8 @@ export function GraphCanvas({
   const hoveredRef = useRef<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+  const zoomRef = useRef<d3.ZoomBehavior<HTMLCanvasElement, unknown> | null>(null);
+  const d3CanvasRef = useRef<d3.Selection<HTMLCanvasElement, unknown, null, undefined> | null>(null);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -58,8 +62,6 @@ export function GraphCanvas({
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const width = canvas.width / dpr;
-    const height = canvas.height / dpr;
     const transform = transformRef.current;
     const theme = getTheme();
     const isDark = theme === "dark";
@@ -232,7 +234,7 @@ export function GraphCanvas({
 
     simulationRef.current = simulation;
 
-    const d3Canvas = d3.select(canvas);
+    const d3CanvasSel = d3.select(canvas);
     const zoom = d3
       .zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.1, 10])
@@ -242,7 +244,23 @@ export function GraphCanvas({
         rafRef.current = requestAnimationFrame(draw);
       });
 
-    d3Canvas.call(zoom);
+    d3CanvasSel.call(zoom);
+    zoomRef.current = zoom;
+    d3CanvasRef.current = d3CanvasSel;
+
+    if (centerOnNodeRef) {
+      centerOnNodeRef.current = (id: string) => {
+        const node = nodesRef.current.find((n) => n.id === id);
+        if (!node || !canvas) return;
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+        const scale = 2;
+        const tx = w / 2 - node.x * scale;
+        const ty = h / 2 - node.y * scale;
+        const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
+        d3CanvasSel.call(zoom.transform, transform);
+      };
+    }
 
     function getNodeAtPoint(px: number, py: number): SimNode | null {
       const t = transformRef.current;
@@ -357,7 +375,7 @@ export function GraphCanvas({
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       resizeObserver.disconnect();
     };
-  }, [markets, edges, draw, onNodeClick, onNodeHover]);
+  }, [markets, edges, draw, onNodeClick, onNodeHover, centerOnNodeRef]);
 
   useEffect(() => {
     cancelAnimationFrame(rafRef.current);
@@ -366,7 +384,12 @@ export function GraphCanvas({
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
-      <canvas ref={canvasRef} className="block w-full h-full" />
+      <canvas
+        ref={canvasRef}
+        className="block w-full h-full"
+        role="img"
+        aria-label="Prediction market dependency graph. Use mouse to pan, scroll to zoom, click nodes for details."
+      />
       <div
         ref={tooltipRef}
         className="absolute pointer-events-none bg-surface border border-border px-2 py-1.5"

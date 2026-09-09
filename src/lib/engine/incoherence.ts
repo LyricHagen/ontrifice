@@ -1,5 +1,5 @@
 import { db, schema } from "@/db";
-import { eq, and, or, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 
 interface IncoherenceResult {

@@ -129,6 +129,7 @@ export function SettingsContent({
             <button
               onClick={() => deleteDialogRef.current?.showModal()}
               className="text-sm text-error cursor-pointer bg-transparent border-none p-0"
+              aria-label="Delete your account"
             >
               Delete account
             </button>

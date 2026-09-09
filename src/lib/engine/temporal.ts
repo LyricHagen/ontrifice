@@ -132,7 +132,6 @@ function incompleteBeta(a: number, b: number, x: number): number {
     Math.log(x) * a + Math.log(1 - x) * b - lnBeta,
   ) / a;
 
-  let f = 1;
   let c = 1;
   let d = 1 - ((a + b) * x) / (a + 1);
   if (Math.abs(d) < 1e-30) d = 1e-30;

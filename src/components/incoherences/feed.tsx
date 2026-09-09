@@ -261,6 +261,8 @@ export function IncoherencesFeed() {
                         <button
                           onClick={() => toggleArbitrage(inc.id)}
                           className="text-xs text-text-secondary font-mono cursor-pointer bg-transparent border-none p-0 hover:text-foreground"
+                          aria-expanded={expandedArbitrage.has(inc.id)}
+                          aria-label="Toggle implied arbitrage details"
                         >
                           {expandedArbitrage.has(inc.id)
                             ? "[-] implied arbitrage"
@@ -290,6 +292,7 @@ export function IncoherencesFeed() {
                 <button
                   onClick={() => setPage(page - 1)}
                   className="text-accent bg-transparent border-none cursor-pointer p-0 hover:underline"
+                  aria-label="Previous page"
                 >
                   Previous
                 </button>
@@ -303,6 +306,7 @@ export function IncoherencesFeed() {
                 <button
                   onClick={() => setPage(page + 1)}
                   className="text-accent bg-transparent border-none cursor-pointer p-0 hover:underline"
+                  aria-label="Next page"
                 >
                   Next
                 </button>

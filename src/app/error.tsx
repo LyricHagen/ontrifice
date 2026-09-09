@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-
 export default function Error({
   error,
   reset,
@@ -9,10 +7,6 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-16">
       <h1 className="text-3xl font-bold font-mono mb-2">500</h1>
@@ -34,6 +28,8 @@ export default function Error({
       >
         Try again
       </button>
+      {/* Full page reload is intentional in error boundaries */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a href="/" className="text-accent">
         Return home
       </a>

@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "Implied Conditionals",
   description:
     "Conditional probabilities derived from the dependency graph that no single market prices.",
+  openGraph: {
+    title: "Implied Conditionals | Ontrifice",
+    description: "Conditional probabilities derived from the dependency graph that no single market prices.",
+    type: "website",
+    url: "https://ontrifice.dev/conditionals",
+  },
 };
 
 export default function ConditionalsPage() {

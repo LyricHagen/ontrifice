@@ -10,11 +10,6 @@ interface MarketDoc {
   metadata: Record<string, unknown> | null;
 }
 
-interface TokenInfo {
-  tf: number;
-  idf: number;
-}
-
 type TfIdfVector = Map<string, number>;
 
 const STOP_WORDS = new Set([
@@ -216,7 +211,6 @@ export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
 
     let similarity = cosineSimilarity(vectors[i], vectors[j]);
 
-    const entitiesA = new Set(marketEntities[i]);
     const entitiesB = new Set(marketEntities[j]);
     const shared = marketEntities[i].filter((e) => entitiesB.has(e));
 

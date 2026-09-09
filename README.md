@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ontrifice
 
-## Getting Started
+Live coherence engine for prediction markets.
 
-First, run the development server:
+Treats the entire prediction market universe as a connected dependency graph and surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts across Polymarket, Kalshi, and Limitless.
+
+## Stack
+
+- Next.js 15 (App Router, TypeScript strict)
+- Tailwind CSS 4
+- PostgreSQL with Drizzle ORM
+- JetBrains Mono + IBM Plex Sans (via next/font)
+
+## Setup
+
+```bash
+git clone https://github.com/your-org/ontrifice.git
+cd ontrifice
+npm install
+```
+
+Create a `.env` file:
+
+```
+DATABASE_URL=postgresql://user:password@localhost:5432/ontrifice
+NEXTAUTH_SECRET=your-secret-here
+NEXTAUTH_URL=http://localhost:3000
+```
+
+Run migrations and seed:
+
+```bash
+npx drizzle-kit push
+npx tsx src/db/seed/index.ts
+```
+
+Start the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Full API documentation is available at [/docs](http://localhost:3000/docs).
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT

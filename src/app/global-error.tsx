@@ -63,6 +63,8 @@ export default function GlobalError({
         >
           Try again
         </button>
+        {/* Full page reload intentional - global error boundary has no router */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/" style={{ color: "#4a7cff" }}>
           Return home
         </a>

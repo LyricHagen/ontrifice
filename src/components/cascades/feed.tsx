@@ -285,6 +285,7 @@ export function CascadesFeed() {
                 <button
                   onClick={() => setPage(page - 1)}
                   className="text-accent bg-transparent border-none cursor-pointer p-0 hover:underline"
+                  aria-label="Previous page"
                 >
                   Previous
                 </button>
@@ -298,6 +299,7 @@ export function CascadesFeed() {
                 <button
                   onClick={() => setPage(page + 1)}
                   className="text-accent bg-transparent border-none cursor-pointer p-0 hover:underline"
+                  aria-label="Next page"
                 >
                   Next
                 </button>

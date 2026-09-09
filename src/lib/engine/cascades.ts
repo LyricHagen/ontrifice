@@ -23,7 +23,6 @@ const MOVEMENT_THRESHOLD = 0.05;
 const DEFAULT_LAG_WINDOW_SECONDS = 7200;
 
 async function detectRecentMovements(): Promise<MarketMovement[]> {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
   const activeMarkets = await db

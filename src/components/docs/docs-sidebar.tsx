@@ -47,7 +47,7 @@ export function DocsSidebar() {
       <p className="text-xs font-mono text-muted uppercase tracking-wider mb-4">
         Contents
       </p>
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-1" aria-label="API documentation sections">
         {sections.map((section) => (
           <a
             key={section.id}

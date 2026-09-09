@@ -18,12 +18,21 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ontrifice.dev"),
   title: {
     default: "Ontrifice",
     template: "%s | Ontrifice",
   },
   description:
     "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.",
+  openGraph: {
+    title: "Ontrifice",
+    description:
+      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.",
+    type: "website",
+    url: "https://ontrifice.dev",
+    siteName: "Ontrifice",
+  },
 };
 
 export default function RootLayout({
@@ -43,8 +52,15 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col">
         <Providers>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-surface focus:border focus:border-border focus:px-3 focus:py-2 focus:text-sm focus:font-mono focus:text-accent focus:no-underline"
+            style={{ borderRadius: "2px" }}
+          >
+            Skip to main content
+          </a>
           <Navigation />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1">{children}</main>
           <Footer />
         </Providers>
       </body>

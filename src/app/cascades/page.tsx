@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "Cascade Alerts",
   description:
     "Markets that moved significantly but whose connected markets haven't followed yet.",
+  openGraph: {
+    title: "Cascade Alerts | Ontrifice",
+    description: "Markets that moved significantly but whose connected markets haven't followed yet.",
+    type: "website",
+    url: "https://ontrifice.dev/cascades",
+  },
 };
 
 export default function CascadesPage() {
