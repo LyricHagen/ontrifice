@@ -1,6 +1,6 @@
 # Ontrifice
 
-Live prediction market coherence engine. Treats the entire prediction market universe as a connected dependency graph and surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts.
+Cross-market neg risk engine for prediction markets. Proves structural relationships between contracts across Polymarket and Kalshi to compute collateral-efficient portfolios. The dependency graph is the inference layer; the collateral solver is the output layer.
 
 ## Stack
 
@@ -19,10 +19,9 @@ Live prediction market coherence engine. Treats the entire prediction market uni
 
 ```
 /                landing (public)
-/explore         graph explorer (public)
-/incoherences    cross-market inconsistencies feed (public)
-/conditionals    implied conditional query interface (public)
-/cascades        real-time cascade alerts (public)
+/analyzer        portfolio collateral analyzer (public)
+/constraints     proven market relationships browser (public)
+/graph           relationship network visualization (public)
 /docs            API documentation (public)
 /login           auth (public)
 /signup          auth (public)

@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Ontrifice",
   },
   description:
-    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts.",
+    "Cross-market neg risk engine for prediction markets. Proves structural relationships between contracts across platforms to compute collateral-efficient portfolios.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Ontrifice",
     description:
-      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts.",
+      "Cross-market neg risk engine. Proves structural relationships between prediction market contracts to reduce collateral requirements.",
     type: "website",
     url: "https://ontrifice.dev",
     siteName: "Ontrifice",

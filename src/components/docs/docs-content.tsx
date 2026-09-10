@@ -113,9 +113,9 @@ export function DocsContent() {
         <section id="overview">
           <h1 className="text-3xl font-bold font-mono mb-6">API Documentation</h1>
           <p className="text-text-secondary mb-4">
-            Ontrifice exposes a REST API for querying the prediction market
-            dependency graph, computed incoherences, model-implied probabilities,
-            and cascade alerts.
+            Use the Ontrifice API to compute collateral-efficient portfolios
+            across prediction markets. Input your positions, get back your true
+            max loss and the proven relationships that reduce it.
           </p>
 
           <h3 className="text-lg font-bold font-mono mt-8 mb-2">Base URL</h3>
@@ -125,8 +125,9 @@ export function DocsContent() {
         <section id="authentication" className="mt-12">
           <h2 className="text-xl font-bold font-mono mb-4">Authentication</h2>
           <p className="text-text-secondary mb-4">
-            Most read endpoints are public. Write endpoints and rate-limited
-            features require an API key passed in the Authorization header:
+            Most read endpoints are public. The portfolio analysis endpoint works
+            without auth for demo purposes (rate-limited). Write endpoints require
+            an API key passed in the Authorization header:
           </p>
           <Code>{`Authorization: Bearer YOUR_API_KEY`}</Code>
           <p className="text-text-secondary mt-4">
@@ -161,69 +162,187 @@ export function DocsContent() {
           <h3 className="text-lg font-bold font-mono mt-8 mb-2">Error Codes</h3>
           <ErrorTable
             errors={[
-              {
-                code: "ERR_VALIDATION",
-                status: 400,
-                description: "A query parameter or request body field has an invalid value.",
-              },
-              {
-                code: "ERR_AUTH_MISSING_API_KEY",
-                status: 401,
-                description: "No API key was provided on a protected endpoint.",
-              },
-              {
-                code: "ERR_AUTH_INVALID_CREDENTIALS",
-                status: 401,
-                description: "The provided API key is not valid.",
-              },
-              {
-                code: "ERR_AUTH_SESSION_EXPIRED",
-                status: 401,
-                description: "The session has expired due to inactivity.",
-              },
-              {
-                code: "ERR_AUTH_ACCOUNT_NOT_FOUND",
-                status: 404,
-                description: "No account matches the provided credentials.",
-              },
-              {
-                code: "ERR_MARKET_NOT_FOUND",
-                status: 404,
-                description: "The requested market ID does not exist.",
-              },
-              {
-                code: "ERR_RATE_LIMIT",
-                status: 429,
-                description: "Too many requests. Wait and retry.",
-              },
-              {
-                code: "ERR_MARKET_FETCH_TIMEOUT",
-                status: 502,
-                description: "An upstream prediction market platform did not respond in time.",
-              },
-              {
-                code: "ERR_EXTERNAL_API",
-                status: 502,
-                description: "An external service returned an error.",
-              },
-              {
-                code: "ERR_DATABASE",
-                status: 500,
-                description: "A database operation failed unexpectedly.",
-              },
-              {
-                code: "ERR_GRAPH_COMPUTATION",
-                status: 500,
-                description: "The dependency graph computation failed.",
-              },
-              {
-                code: "ERR_INTERNAL",
-                status: 500,
-                description: "An unexpected server error occurred.",
-              },
+              { code: "ERR_VALIDATION", status: 400, description: "A query parameter or request body field has an invalid value." },
+              { code: "ERR_AUTH_MISSING_API_KEY", status: 401, description: "No API key was provided on a protected endpoint." },
+              { code: "ERR_NOT_FOUND", status: 404, description: "The requested resource does not exist." },
+              { code: "ERR_MARKET_NOT_FOUND", status: 404, description: "The requested market ID does not exist." },
+              { code: "ERR_RATE_LIMIT", status: 429, description: "Too many requests. Wait and retry." },
+              { code: "ERR_DATABASE", status: 500, description: "A database operation failed unexpectedly." },
+              { code: "ERR_INTERNAL", status: 500, description: "An unexpected server error occurred." },
             ]}
           />
         </section>
+
+        {/* POST /api/portfolio/analyze */}
+        <Endpoint
+          id="post-api-portfolio-analyze"
+          method="POST"
+          path="/api/portfolio/analyze"
+          description="Compute collateral requirements for a portfolio of prediction market positions. Returns naive collateral (sum of individual max losses), optimized collateral (true max loss given proven constraints), binding constraints, and the worst-case resolution scenario."
+          auth={false}
+        >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Request Body</h3>
+          <Code>{`{
+  "positions": [
+    {
+      "market_id": "uuid",
+      "side": "YES" | "NO",
+      "size": number,
+      "avg_price": number (0-1 exclusive)
+    }
+  ]
+}`}</Code>
+          <ParamTable
+            params={[
+              { name: "positions", type: "array", description: "Array of position objects (max 50)" },
+              { name: "positions[].market_id", type: "uuid", description: "Market ID from the Ontrifice database" },
+              { name: "positions[].side", type: "string", description: "Position direction: YES or NO" },
+              { name: "positions[].size", type: "number", description: "Number of shares (must be positive)" },
+              { name: "positions[].avg_price", type: "number", description: "Average entry price (between 0 and 1, exclusive)" },
+            ]}
+          />
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
+          <Code>{`curl -X POST https://api.ontrifice.dev/v1/api/portfolio/analyze \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "positions": [
+      { "market_id": "a1b2...", "side": "YES", "size": 100, "avg_price": 0.65 },
+      { "market_id": "b2c3...", "side": "NO", "size": 200, "avg_price": 0.40 }
+    ]
+  }'`}</Code>
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
+          <Code>{`{
+  "naive_collateral": 185.00,
+  "optimized_collateral": 120.00,
+  "savings": 65.00,
+  "savings_pct": 35.14,
+  "constraint_count": 3,
+  "binding_constraints": [
+    {
+      "market_id_a": "a1b2...",
+      "market_id_b": "b2c3...",
+      "market_title_a": "Will the Fed cut rates in Q3 2026?",
+      "market_title_b": "US GDP growth above 3% in 2026?",
+      "relationship_type": "mutual_exclusion",
+      "collateral_saved": 65.00,
+      "edge_id": "e1e2...",
+      "confidence": 0.95
+    }
+  ],
+  "worst_case": {
+    "resolutions": { "a1b2...": true, "b2c3...": false },
+    "position_pnls": [
+      {
+        "market_id": "a1b2...",
+        "market_title": "Will the Fed cut rates in Q3 2026?",
+        "side": "YES",
+        "size": 100,
+        "avg_price": 0.65,
+        "resolution": "YES",
+        "pnl": 35.00
+      },
+      {
+        "market_id": "b2c3...",
+        "market_title": "US GDP growth above 3% in 2026?",
+        "side": "NO",
+        "size": 200,
+        "avg_price": 0.40,
+        "resolution": "NO",
+        "pnl": 80.00
+      }
+    ],
+    "total_loss": 120.00
+  },
+  "warnings": []
+}`}</Code>
+        </Endpoint>
+
+        {/* POST /api/portfolio/suggest */}
+        <Endpoint
+          id="post-api-portfolio-suggest"
+          method="POST"
+          path="/api/portfolio/suggest"
+          description="Given an existing portfolio, suggest markets with structural relationships that could reduce total collateral requirements if added."
+          auth={false}
+        >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Request Body</h3>
+          <p className="text-text-secondary mb-2">
+            Same format as the analyze endpoint.
+          </p>
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
+          <Code>{`{
+  "suggestions": [
+    {
+      "market_id": "c3d4...",
+      "market_title": "Fed holds rates through 2026?",
+      "relationship_count": 3,
+      "potential_savings": "Depends on position size and direction"
+    }
+  ]
+}`}</Code>
+        </Endpoint>
+
+        {/* GET /api/constraints */}
+        <Endpoint
+          id="get-api-constraints"
+          method="GET"
+          path="/api/constraints"
+          description="List proven structural relationships between markets. These are the raw constraints that power collateral optimization."
+          auth={false}
+        >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
+          <ParamTable
+            params={[
+              { name: "type", type: "string", description: "Filter by relationship type: mutually_exclusive, implies, temporal_precondition" },
+              { name: "class", type: "string", description: "Filter by relation class: logical, statistical, semantic" },
+              { name: "platform", type: "string", description: "Filter by platform: polymarket, kalshi, limitless, cross-platform" },
+              { name: "min_confidence", type: "number", description: "Minimum confidence threshold (0-1)" },
+              { name: "page", type: "integer", default: "1", description: "Page number" },
+              { name: "limit", type: "integer", default: "50", description: "Results per page (max 100)" },
+            ]}
+          />
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
+          <Code>{`curl "https://api.ontrifice.dev/v1/api/constraints?type=mutually_exclusive&min_confidence=0.8"`}</Code>
+
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
+          <Code>{`{
+  "constraints": [
+    {
+      "id": "e1e2...",
+      "market_a": { "id": "a1b2...", "title": "Trump wins 2028", "platform": "polymarket" },
+      "market_b": { "id": "b2c3...", "title": "DeSantis wins 2028", "platform": "polymarket" },
+      "relation_class": "logical",
+      "relation_type": "mutually_exclusive",
+      "confidence": "0.95000000",
+      "score": "0.95000000",
+      "direction": "bidirectional",
+      "mathematical_semantics": "P(A AND B) = 0; mutually exclusive and collectively exhaustive",
+      "evidence": { "constraintType": "mutual_exclusion", "collectivelyExhaustive": true },
+      "detected_at": "2026-09-08T12:00:00.000Z",
+      "model_version": "structural-v1"
+    }
+  ],
+  "total": 234,
+  "page": 1,
+  "limit": 50
+}`}</Code>
+        </Endpoint>
+
+        {/* GET /api/constraints/:id */}
+        <Endpoint
+          id="get-api-constraints-id"
+          method="GET"
+          path="/api/constraints/:id"
+          description="Get full details for a single constraint, including both markets and the complete evidence/proof."
+          auth={false}
+        >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
+          <Code>{`curl https://api.ontrifice.dev/v1/api/constraints/e1e2e3e4-...`}</Code>
+        </Endpoint>
 
         {/* GET /api/markets */}
         <Endpoint
@@ -246,50 +365,6 @@ export function DocsContent() {
               { name: "limit", type: "integer", default: "20", description: "Results per page (max 100)" },
             ]}
           />
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/markets?platform=polymarket&limit=2`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "markets": [
-    {
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "platform": "polymarket",
-      "platformMarketId": "0x1234abcd",
-      "title": "Will the Fed cut rates in Q3 2026?",
-      "description": "Resolves YES if the Federal Reserve...",
-      "category": "economics",
-      "currentProbability": "0.72000000",
-      "volumeUsd": "1450320.50",
-      "status": "active",
-      "resolution": null,
-      "createdAt": "2026-08-15T10:30:00.000Z",
-      "updatedAt": "2026-09-08T14:22:00.000Z",
-      "lastFetchedAt": "2026-09-09T01:00:00.000Z",
-      "metadata": {}
-    },
-    {
-      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "platform": "polymarket",
-      "platformMarketId": "0x5678efgh",
-      "title": "US GDP growth above 3% in 2026?",
-      "description": "Resolves YES if annualized GDP...",
-      "category": "economics",
-      "currentProbability": "0.41000000",
-      "volumeUsd": "892100.00",
-      "status": "active",
-      "resolution": null,
-      "createdAt": "2026-07-01T08:00:00.000Z",
-      "updatedAt": "2026-09-08T18:45:00.000Z",
-      "lastFetchedAt": "2026-09-09T01:00:00.000Z",
-      "metadata": {}
-    }
-  ],
-  "total": 847,
-  "page": 1,
-  "limit": 2
-}`}</Code>
         </Endpoint>
 
         {/* GET /api/markets/:id */}
@@ -300,54 +375,6 @@ export function DocsContent() {
           description="Get a single market by ID, including its graph edges and connected markets."
           auth={false}
         >
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/markets/a1b2c3d4-e5f6-7890-abcd-ef1234567890`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "market": {
-    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "platform": "polymarket",
-    "platformMarketId": "0x1234abcd",
-    "title": "Will the Fed cut rates in Q3 2026?",
-    "description": "Resolves YES if the Federal Reserve...",
-    "category": "economics",
-    "currentProbability": "0.72000000",
-    "volumeUsd": "1450320.50",
-    "status": "active",
-    "resolution": null,
-    "createdAt": "2026-08-15T10:30:00.000Z",
-    "updatedAt": "2026-09-08T14:22:00.000Z",
-    "lastFetchedAt": "2026-09-09T01:00:00.000Z",
-    "metadata": {}
-  },
-  "edges": [
-    {
-      "id": "e1e2e3e4-e5e6-7890-abcd-ef1234567890",
-      "sourceMarketId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "targetMarketId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "relationClass": "semantic",
-      "relationType": "same_topic",
-      "score": "0.85000000",
-      "confidence": "0.92000000",
-      "direction": "bidirectional",
-      "mathematicalSemantics": "tfidf_cosine=0.8500; shared category 'economics'",
-      "modelVersion": "tfidf-v1",
-      "evidence": {},
-      "createdAt": "2026-08-20T12:00:00.000Z",
-      "updatedAt": "2026-09-08T14:22:00.000Z"
-    }
-  ],
-  "connectedMarkets": [
-    {
-      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "title": "US GDP growth above 3% in 2026?",
-      "platform": "polymarket",
-      "currentProbability": "0.41000000"
-    }
-  ]
-}`}</Code>
-
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Error</h3>
           <p className="text-text-secondary">
             Returns <span className="font-mono">404</span> with{" "}
@@ -356,12 +383,38 @@ export function DocsContent() {
           </p>
         </Endpoint>
 
+        {/* GET /api/markets/:id/relationships */}
+        <Endpoint
+          id="get-api-markets-id-relationships"
+          method="GET"
+          path="/api/markets/:id/relationships"
+          description="Get all proven relationships involving a specific market. Returns the market details and all constraint edges where it appears as either source or target."
+          auth={false}
+        >
+          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
+          <Code>{`{
+  "market": { "id": "a1b2...", "title": "Will the Fed cut rates in Q3 2026?" },
+  "relationships": [
+    {
+      "id": "e1e2...",
+      "market_a": { "id": "a1b2...", "title": "Will the Fed cut rates in Q3 2026?", "platform": "polymarket" },
+      "market_b": { "id": "b2c3...", "title": "US GDP growth above 3% in 2026?", "platform": "kalshi" },
+      "relation_class": "logical",
+      "relation_type": "implies",
+      "confidence": "0.70000000",
+      "mathematical_semantics": "if source resolves YES, target must resolve YES",
+      "evidence": { "constraintType": "implication", "reason": "..." }
+    }
+  ]
+}`}</Code>
+        </Endpoint>
+
         {/* GET /api/graph/edges */}
         <Endpoint
           id="get-api-graph-edges"
           method="GET"
           path="/api/graph/edges"
-          description="Query the dependency graph. When market_id is provided, returns the local subgraph around that market. Otherwise returns edges matching the filters."
+          description="Query the dependency graph directly. When market_id is provided, returns the local subgraph around that market. Otherwise returns edges matching the filters."
           auth={false}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
@@ -370,302 +423,11 @@ export function DocsContent() {
               { name: "market_id", type: "uuid", description: "Return the subgraph around this market" },
               { name: "depth", type: "integer", default: "1", description: "Traversal depth when market_id is set (1-5)" },
               { name: "relation_class", type: "string", description: "Filter by class: logical, statistical, semantic" },
-              { name: "relation_type", type: "string", description: "Filter by type within class (e.g., correlation, implies, same_entity)" },
+              { name: "relation_type", type: "string", description: "Filter by type within class" },
               { name: "min_score", type: "number", description: "Minimum edge score (-1 to 1)" },
               { name: "limit", type: "integer", default: "100", description: "Max edges to return (max 500)" },
             ]}
           />
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/edges?relation_class=semantic&min_score=0.7&limit=2`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "edges": [
-    {
-      "id": "e1e2e3e4-e5e6-7890-abcd-ef1234567890",
-      "sourceMarketId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "targetMarketId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "relationClass": "semantic",
-      "relationType": "same_topic",
-      "score": "0.85000000",
-      "confidence": "0.92000000",
-      "direction": "bidirectional",
-      "mathematicalSemantics": "tfidf_cosine=0.8500; shared category 'economics'",
-      "modelVersion": "tfidf-v1",
-      "sampleSize": null,
-      "evidence": {},
-      "createdAt": "2026-08-20T12:00:00.000Z",
-      "updatedAt": "2026-09-08T14:22:00.000Z"
-    }
-  ],
-  "count": 1
-}`}</Code>
-        </Endpoint>
-
-        {/* GET /api/graph/incoherences */}
-        <Endpoint
-          id="get-api-graph-incoherences"
-          method="GET"
-          path="/api/graph/incoherences"
-          description="List detected incoherences across the market graph. Each incoherence is classified as either a contradiction (logically impossible prices) or a divergence (statistically unusual prices)."
-          auth={false}
-        >
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Detection Classes</h3>
-          <div className="overflow-x-auto my-4">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-4 font-mono font-medium">Class</th>
-                  <th className="text-left py-2 font-mono font-medium">Meaning</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 font-mono text-accent">contradiction</td>
-                  <td className="py-2 text-text-secondary">Logically impossible given hard constraints. These are real incoherences.</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 font-mono text-accent">divergence</td>
-                  <td className="py-2 text-text-secondary">Statistically unusual given the model. These are interesting but not certain.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
-          <ParamTable
-            params={[
-              { name: "status", type: "string", description: "Filter by status: active, resolved, expired" },
-              { name: "violation_type", type: "string", description: "Filter by type: probability_sum, probability_divergence, mutual_exclusion, implication_violation" },
-              { name: "detection_class", type: "string", description: "Filter by class: contradiction, divergence" },
-              { name: "sort", type: "string", default: "severity", description: "Sort field: severity, detected_at, market_count" },
-              { name: "order", type: "string", default: "desc", description: "Sort order: asc, desc" },
-              { name: "page", type: "integer", default: "1", description: "Page number" },
-              { name: "limit", type: "integer", default: "20", description: "Results per page (max 100)" },
-            ]}
-          />
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/incoherences?status=active&detection_class=contradiction&limit=1`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "incoherences": [
-    {
-      "id": "f1f2f3f4-f5f6-7890-abcd-ef1234567890",
-      "involvedMarketIds": [
-        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-      ],
-      "violationType": "probability_sum",
-      "detectionClass": "contradiction",
-      "severity": "0.84000000",
-      "description": "Mutually exclusive markets exceed 100%",
-      "impliedArbitrage": {
-        "type": "logical_arbitrage",
-        "sum": 1.13,
-        "deviation": 0.13,
-        "direction": "overpriced",
-        "markets": [...]
-      },
-      "detectedAt": "2026-09-08T18:30:00.000Z",
-      "resolvedAt": null,
-      "status": "active",
-      "involvedMarkets": [
-        {
-          "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-          "title": "Will the Fed cut rates in Q3 2026?",
-          "platform": "polymarket",
-          "currentProbability": "0.72000000"
-        },
-        {
-          "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-          "title": "US GDP growth above 3% in 2026?",
-          "platform": "polymarket",
-          "currentProbability": "0.41000000"
-        }
-      ]
-    }
-  ],
-  "total": 23,
-  "page": 1,
-  "limit": 1
-}`}</Code>
-        </Endpoint>
-
-        {/* GET /api/graph/conditionals */}
-        <Endpoint
-          id="get-api-graph-conditionals"
-          method="GET"
-          path="/api/graph/conditionals"
-          description="Compute a model-implied conditional probability between two markets, or list recent computations."
-          auth={false}
-        >
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Methodology</h3>
-          <p className="text-text-secondary mb-2">
-            For binary random variables A and B with known marginal probabilities
-            P(A) and P(B), the joint probability is computed using the Bernoulli
-            correlation formula:
-          </p>
-          <Code>{`P(A,B) = P(A)*P(B) + r * sqrt(P(A)*(1-P(A)) * P(B)*(1-P(B)))`}</Code>
-          <p className="text-text-secondary mb-2">
-            This is exact for binary variables given the true Pearson correlation r.
-            The conditional follows as P(B|A) = P(A,B) / P(A). The computed joint
-            is clamped to the Frechet bounds [max(0, P(A)+P(B)-1), min(P(A), P(B))];
-            clamping indicates the correlation estimate is unreliable for that pair.
-          </p>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Confidence levels</h3>
-          <div className="overflow-x-auto my-4">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-4 font-mono font-medium">Level</th>
-                  <th className="text-left py-2 pr-4 font-mono font-medium">Basis</th>
-                  <th className="text-left py-2 font-mono font-medium">Criteria</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 font-mono">HIGH</td>
-                  <td className="py-2 pr-4 text-text-secondary">direct_observation</td>
-                  <td className="py-2 text-text-secondary">Direct statistical edge with 30+ observations</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 font-mono">MEDIUM</td>
-                  <td className="py-2 pr-4 text-text-secondary">direct_observation</td>
-                  <td className="py-2 text-text-secondary">{"Direct statistical edge with <30 observations"}</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 font-mono">LOW</td>
-                  <td className="py-2 pr-4 text-text-secondary">path_inference</td>
-                  <td className="py-2 text-text-secondary">No direct edge; correlation estimated by multiplying along path (assumes conditional independence)</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Limitations</h3>
-          <p className="text-text-secondary mb-4">
-            The formula is exact only if the correlation r is the true population
-            Pearson correlation. In practice we use an estimate derived from market
-            price co-movement, which introduces sampling error. Path-inferred
-            estimates multiply correlations along intermediate edges, which assumes
-            conditional independence along the path. This may not hold and can
-            produce misleading estimates. All results are model outputs, not market
-            prices.
-          </p>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
-          <ParamTable
-            params={[
-              { name: "condition", type: "uuid", description: "The condition market ID. Required with target." },
-              { name: "target", type: "uuid", description: "The target market ID. Required with condition." },
-              { name: "page", type: "integer", default: "1", description: "Page number (when listing)" },
-              { name: "limit", type: "integer", default: "20", description: "Results per page (when listing, max 100)" },
-            ]}
-          />
-          <p className="text-text-secondary mt-2 mb-4">
-            Provide both <span className="font-mono">condition</span> and{" "}
-            <span className="font-mono">target</span> to compute a probability,
-            or omit both to list recent computations.
-          </p>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl "https://api.ontrifice.dev/v1/api/graph/conditionals?condition=a1b2c3d4-e5f6-7890-abcd-ef1234567890&target=b2c3d4e5-f6a7-8901-bcde-f12345678901"`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "conditional": {
-    "probability": 0.58,
-    "confidenceLevel": "HIGH",
-    "confidenceBasis": "direct_observation",
-    "assumptions": "Joint probability computed via Bernoulli correlation formula: P(A,B) = P(A)*P(B) + r*sqrt(P(A)*(1-P(A))*P(B)*(1-P(B))). This is exact for binary random variables given the true Pearson correlation. The correlation r=0.4200 is an estimate from 45 observations.",
-    "derivationPath": [
-      {
-        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "title": "Will the Fed cut rates in Q3 2026?"
-      },
-      {
-        "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-        "title": "US GDP growth above 3% in 2026?"
-      }
-    ],
-    "conditionMarket": {
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "title": "Will the Fed cut rates in Q3 2026?",
-      "probability": 0.72
-    },
-    "targetMarket": {
-      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "title": "US GDP growth above 3% in 2026?",
-      "probability": 0.41
-    }
-  }
-}`}</Code>
-        </Endpoint>
-
-        {/* GET /api/graph/cascades */}
-        <Endpoint
-          id="get-api-graph-cascades"
-          method="GET"
-          path="/api/graph/cascades"
-          description="List cascade alerts. A cascade alert fires when a trigger market moves significantly and connected markets have not yet adjusted."
-          auth={false}
-        >
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
-          <ParamTable
-            params={[
-              { name: "status", type: "string", description: "Filter by status: active, resolved, expired" },
-              { name: "sort", type: "string", default: "detected_at", description: "Sort field: detected_at, trigger_delta" },
-              { name: "order", type: "string", default: "desc", description: "Sort order: asc, desc" },
-              { name: "page", type: "integer", default: "1", description: "Page number" },
-              { name: "limit", type: "integer", default: "20", description: "Results per page (max 100)" },
-            ]}
-          />
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/graph/cascades?status=active&limit=1`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "cascades": [
-    {
-      "id": "d4e5f6a7-b8c9-0123-defg-345678901234",
-      "triggerMarketId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "expectedMarketIds": [
-        "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-      ],
-      "triggerDelta": "0.15000000",
-      "expectedDeltas": {
-        "b2c3d4e5-f6a7-8901-bcde-f12345678901": 0.08
-      },
-      "lagWindowSeconds": 3600,
-      "detectedAt": "2026-09-09T00:15:00.000Z",
-      "resolvedAt": null,
-      "status": "active",
-      "triggerMarket": {
-        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "title": "Will the Fed cut rates in Q3 2026?",
-        "platform": "polymarket",
-        "currentProbability": "0.72000000"
-      },
-      "expectedMarkets": [
-        {
-          "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-          "title": "US GDP growth above 3% in 2026?",
-          "platform": "polymarket",
-          "currentProbability": "0.41000000",
-          "expectedDelta": 0.08
-        }
-      ]
-    }
-  ],
-  "total": 5,
-  "page": 1,
-  "limit": 1
-}`}</Code>
         </Endpoint>
 
         {/* POST /api/ingestion/trigger */}
@@ -679,16 +441,6 @@ export function DocsContent() {
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
           <Code>{`curl -X POST https://api.ontrifice.dev/v1/api/ingestion/trigger \\
   -H "Authorization: Bearer YOUR_API_KEY"`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "summary": {
-    "marketsProcessed": 1247,
-    "created": 18,
-    "updated": 1229,
-    "errors": 0
-  }
-}`}</Code>
         </Endpoint>
 
         {/* POST /api/graph/compute */}
@@ -696,33 +448,13 @@ export function DocsContent() {
           id="post-api-graph-compute"
           method="POST"
           path="/api/graph/compute"
-          description="Trigger a full graph computation cycle. Recomputes all edges, detects incoherences, and identifies cascade opportunities."
+          description="Trigger a full graph computation cycle. Recomputes all edges and detects structural relationships between markets."
           auth={true}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
           <Code>{`curl -X POST https://api.ontrifice.dev/v1/api/graph/compute \\
   -H "Authorization: Bearer YOUR_API_KEY"`}</Code>
-
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
-          <Code>{`{
-  "status": "complete",
-  "summary": {
-    "edgesCreated": 342,
-    "incoherencesDetected": 7,
-    "cascadesDetected": 3,
-    "computeTimeMs": 4821
-  }
-}`}</Code>
         </Endpoint>
-
-        {/* Webhooks */}
-        <section id="webhooks" className="mt-12 pt-8 border-t border-border">
-          <h2 className="text-xl font-bold font-mono mb-4">Webhooks</h2>
-          <p className="text-text-secondary">
-            Webhook support for real-time incoherence and cascade notifications
-            is planned.
-          </p>
-        </section>
 
         {/* Client Libraries */}
         <section id="client-libraries" className="mt-12 pt-8 border-t border-border mb-16">

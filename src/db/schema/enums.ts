@@ -59,3 +59,5 @@ export const confidenceBasisEnum = pgEnum("confidence_basis", [
   "direct_observation",
   "path_inference",
 ]);
+
+export const positionSideEnum = pgEnum("position_side", ["YES", "NO"]);

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 interface Stats {
   marketsCount: number;
   edgesCount: number;
-  activeIncoherences: number;
+  constraintTypes: number;
 }
 
 function StatCell({ label, value }: { label: string; value: string | null }) {
@@ -37,9 +37,15 @@ export function LiveStats() {
         if (!res.ok) throw new Error("Failed to fetch stats");
         return res.json();
       })
-      .then((data: Stats) => setStats(data))
+      .then((data) =>
+        setStats({
+          marketsCount: data.marketsCount ?? 0,
+          edgesCount: data.edgesCount ?? 0,
+          constraintTypes: data.constraintTypes ?? 3,
+        }),
+      )
       .catch(() => {
-        setStats({ marketsCount: 0, edgesCount: 0, activeIncoherences: 0 });
+        setStats({ marketsCount: 0, edgesCount: 0, constraintTypes: 0 });
       });
   }, []);
 
@@ -50,12 +56,12 @@ export function LiveStats() {
         value={stats ? stats.marketsCount.toLocaleString() : null}
       />
       <StatCell
-        label="Active edges"
+        label="Proven relationships"
         value={stats ? stats.edgesCount.toLocaleString() : null}
       />
       <StatCell
-        label="Open incoherences"
-        value={stats ? stats.activeIncoherences.toLocaleString() : null}
+        label="Constraint types"
+        value={stats ? String(stats.constraintTypes) : null}
       />
     </div>
   );

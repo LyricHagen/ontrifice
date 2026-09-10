@@ -7,10 +7,9 @@ import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "./theme-toggle";
 
 const navLinks = [
-  { href: "/explore", label: "Explore" },
-  { href: "/incoherences", label: "Incoherences" },
-  { href: "/conditionals", label: "Model-Implied" },
-  { href: "/cascades", label: "Cascades" },
+  { href: "/analyzer", label: "Analyzer" },
+  { href: "/constraints", label: "Constraints" },
+  { href: "/graph", label: "Graph" },
   { href: "/docs", label: "Docs" },
 ];
 

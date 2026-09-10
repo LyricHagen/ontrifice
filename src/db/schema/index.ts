@@ -7,3 +7,4 @@ export * from "./implied-conditionals";
 export * from "./users";
 export * from "./cascade-alerts";
 export * from "./ingestion-state";
+export * from "./portfolios";

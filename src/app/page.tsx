@@ -5,11 +5,11 @@ import { LiveStats } from "@/components/live-stats";
 export const metadata: Metadata = {
   title: "Ontrifice",
   description:
-    "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts across Polymarket, Kalshi, and Limitless.",
+    "Cross-market neg risk engine for prediction markets. Proves structural relationships between contracts across platforms to compute collateral-efficient portfolios.",
   openGraph: {
     title: "Ontrifice",
     description:
-      "Live prediction market coherence engine. Surfaces cross-event logical inconsistencies, model-implied probabilities, and cascade alerts.",
+      "Cross-market neg risk engine. Proves structural relationships between prediction market contracts to reduce collateral requirements.",
     type: "website",
     url: "https://ontrifice.dev",
   },
@@ -34,46 +34,106 @@ export default async function Home({
         </div>
       )}
 
+      {/* Hero */}
       <header className="mb-16">
-        <h1 className="font-mono text-4xl font-bold mb-4">Ontrifice</h1>
+        <h1 className="font-mono text-4xl font-bold mb-6">Ontrifice</h1>
+        <p className="text-lg text-foreground leading-relaxed">
+          Your prediction market portfolio posts collateral for each position
+          independently. Your actual max loss is lower.
+        </p>
       </header>
 
-      <section className="mb-16">
-        <div className="flex flex-col gap-4 text-text-secondary leading-relaxed">
-          <p>
-            Prediction markets price events independently but events aren&apos;t
-            independent. &ldquo;Model hits 90% on FrontierMath&rdquo; and
-            &ldquo;lab claims AGI&rdquo; and &ldquo;AI regulation passes&rdquo;
-            are obviously correlated yet every platform prices them in isolation.
-          </p>
-          <p>
-            There&apos;s ~$25B/month moving through these markets with no strong
-            coherence layer. Contradictions sit for hours and sometimes days,
-            implied conditionals go completely unpriced. Cascade effects are
-            basically invisible; one event resolves, a dozen downstream contracts
-            should reprice, nobody notices until it happens. The information
-            exists, it&apos;s just scattered across platforms and order books and
-            it&apos;s not wired together.
-          </p>
-          <p>
-            Use cases: pricing conditionals no single market offers, catching
-            cascade lag before downstream contracts reprice, flagging when
-            exclusive outcomes sum past 100%.
-          </p>
-        </div>
-      </section>
-
+      {/* Live demo number */}
       <section className="mb-16">
         <LiveStats />
       </section>
 
+      {/* Problem */}
+      <section className="mb-16">
+        <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">
+          The problem
+        </h2>
+        <div className="flex flex-col gap-4 text-text-secondary leading-relaxed">
+          <p>
+            Prediction markets are fully collateralized. Every position locks up
+            its full risk amount. Neg risk solves this within single
+            winner-take-all events&mdash;if you hold NO on every candidate in
+            &ldquo;Who wins the election?&rdquo;, you only post collateral for
+            your max loss, not the sum of all legs.
+          </p>
+          <p>
+            But across disparate markets, across platforms, across different
+            contract structures, your capital is fragmented. You post collateral
+            as if your positions are independent. They aren&apos;t.
+          </p>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="mb-16">
+        <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">
+          How it works
+        </h2>
+        <div className="flex flex-col gap-0 border border-border" style={{ borderRadius: "2px" }}>
+          <div className="px-4 py-4 border-b border-border">
+            <div className="font-mono text-xs text-text-secondary mb-1">01</div>
+            <p className="text-sm text-foreground">
+              Ontrifice ingests markets from Polymarket and Kalshi and detects
+              structural relationships&mdash;mutual exclusion, implication,
+              exhaustive sets.
+            </p>
+          </div>
+          <div className="px-4 py-4 border-b border-border">
+            <div className="font-mono text-xs text-text-secondary mb-1">02</div>
+            <p className="text-sm text-foreground">
+              You input a portfolio of positions across any markets on any
+              platform.
+            </p>
+          </div>
+          <div className="px-4 py-4">
+            <div className="font-mono text-xs text-text-secondary mb-1">03</div>
+            <p className="text-sm text-foreground">
+              The solver computes your true max loss given the proven
+              constraints&mdash;and shows exactly which relationships are saving
+              you capital.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Use cases */}
+      <section className="mb-16">
+        <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">
+          Use cases
+        </h2>
+        <div className="flex flex-col gap-2 text-sm text-text-secondary">
+          <div className="flex gap-3">
+            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
+            <span>Computing true max loss on multi-leg positions across correlated markets</span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
+            <span>Identifying which portfolio positions are implicitly hedged by structural relationships</span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
+            <span>Proving to a counterparty or exchange that your collateral requirement should be lower</span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
+            <span>Finding collateral-efficient entry points&mdash;markets where adding a position actually reduces your total required collateral</span>
+          </div>
+        </div>
+      </section>
+
+      {/* CTAs */}
       <section className="mb-16 flex gap-4">
         <Link
-          href="/explore"
-          className="font-mono text-sm px-5 py-2.5 border border-border text-foreground no-underline hover:border-accent hover:text-accent"
+          href="/analyzer"
+          className="font-mono text-sm px-5 py-2.5 border border-accent text-accent no-underline"
           style={{ borderRadius: "2px" }}
         >
-          Explore the graph
+          Open the analyzer
         </Link>
         <Link
           href="/docs"
@@ -84,6 +144,7 @@ export default async function Home({
         </Link>
       </section>
 
+      {/* Footer note */}
       <section className="text-sm text-text-secondary border-t border-border pt-6">
         <p>
           Built on data from{" "}
