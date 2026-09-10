@@ -13,7 +13,7 @@ export function Footer() {
             API Docs
           </Link>
           <a
-            href="https://github.com"
+            href="https://github.com/LyricHagen/ontrifice"
             target="_blank"
             rel="noopener noreferrer"
             className="no-underline text-text-secondary hover:text-foreground"

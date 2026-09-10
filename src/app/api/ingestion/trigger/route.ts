@@ -88,7 +88,18 @@ async function upsertMarket(market: NormalizedMarket): Promise<{ created: boolea
   return { created: true };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (secret) {
+    const auth = request.headers.get("authorization");
+    if (auth !== `Bearer ${secret}`) {
+      return NextResponse.json(
+        { error: "Unauthorized. (ERR_CRON_AUTH)" },
+        { status: 401 },
+      );
+    }
+  }
+
   const startTime = Date.now();
 
   try {
