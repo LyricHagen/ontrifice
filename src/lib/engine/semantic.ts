@@ -33,6 +33,9 @@ const STOP_WORDS = new Set([
   "who", "whom", "these", "those", "i", "me", "my", "we", "our",
   "you", "your", "he", "him", "his", "she", "her", "they", "them",
   "their", "market", "prediction", "will", "yes", "no",
+  // prediction market phrases that appear in nearly every title
+  "win", "2026", "2027", "2028", "republican", "democratic",
+  "presidential", "primary", "nomination", "price",
 ]);
 
 const NAMED_ENTITY_PATTERNS = [
@@ -144,9 +147,32 @@ function cosineSimilarity(a: TfIdfVector, b: TfIdfVector): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-const SEMANTIC_THRESHOLD = 0.3;
+const SEMANTIC_THRESHOLD = 0.55;
 const CATEGORY_ENTITY_BONUS = 0.1;
 const CROSS_PLATFORM_SIMILARITY_THRESHOLD = 0.7;
+
+const TEMPLATE_PATTERNS = [
+  /^will\s+\S+\s+win\s+the\s+\d{4}\s+\S+\s+/i,
+  /^will\s+\S+\s+win\s+the\s+\d{4}\s+/i,
+  /^will\s+\S+\s+be\s+the\s+\d{4}\s+/i,
+  /^\S+\s+to\s+win\s+\d{4}\s+/i,
+  /^will\s+\S+\s+price\s+(be\s+)?(above|below)\s+/i,
+  /^\S+\s+price\s+(above|below|over|under)\s+/i,
+];
+
+function matchesTemplate(title: string): RegExp | null {
+  for (const pattern of TEMPLATE_PATTERNS) {
+    if (pattern.test(title)) return pattern;
+  }
+  return null;
+}
+
+function isSameTemplate(titleA: string, titleB: string): boolean {
+  const templateA = matchesTemplate(titleA);
+  const templateB = matchesTemplate(titleB);
+  if (!templateA || !templateB) return false;
+  return templateA.source === templateB.source;
+}
 
 function compareResolutionRules(
   rulesA: string | null,
@@ -290,8 +316,15 @@ export async function detectSemanticDependencies(): Promise<SemanticEdge[]> {
 
     similarity = Math.min(similarity, 1);
 
+    const sameTemplate = isSameTemplate(activeMarkets[i].title, activeMarkets[j].title);
+    if (sameTemplate) {
+      similarity *= 0.3;
+    }
+
     if (similarity >= SEMANTIC_THRESHOLD) {
-      const relationType = classifyRelationType(similarity, shared, categoryMatch);
+      const relationType = sameTemplate
+        ? "same_topic" as const
+        : classifyRelationType(similarity, shared, categoryMatch);
       const entityDesc = shared.length > 0
         ? `both contracts reference '${shared.join("', '")}'`
         : categoryMatch

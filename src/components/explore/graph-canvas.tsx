@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback, type MutableRefObject } from "react";
+import { useRef, useEffect, useCallback, useState, type MutableRefObject } from "react";
 import * as d3 from "d3";
 import type { MarketNode, GraphEdge, PLATFORM_COLORS, RELATION_CLASS_COLORS } from "./types";
 
@@ -31,6 +31,9 @@ interface GraphCanvasProps {
   relationClassColors: typeof RELATION_CLASS_COLORS;
   centerOnNodeRef?: MutableRefObject<((id: string) => void) | null>;
 }
+
+const PRE_TICK_COUNT = 300;
+const LABEL_GRID_CELL = 120;
 
 function getTheme(): "dark" | "light" {
   if (typeof document === "undefined") return "dark";
@@ -66,6 +69,10 @@ function setDashForClass(ctx: CanvasRenderingContext2D, rc: string, scale: numbe
   }
 }
 
+function getNodeVolume(node: SimNode): number {
+  return node.volumeUsd ? parseFloat(node.volumeUsd) : 0;
+}
+
 export function GraphCanvas({
   markets,
   edges,
@@ -90,6 +97,10 @@ export function GraphCanvas({
   const rafRef = useRef<number>(0);
   const zoomRef = useRef<d3.ZoomBehavior<HTMLCanvasElement, unknown> | null>(null);
   const d3CanvasRef = useRef<d3.Selection<HTMLCanvasElement, unknown, null, undefined> | null>(null);
+  const layoutReadyRef = useRef(false);
+
+  const [layoutProgress, setLayoutProgress] = useState(0);
+  const [layoutDone, setLayoutDone] = useState(false);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -101,6 +112,7 @@ export function GraphCanvas({
     const transform = transformRef.current;
     const theme = getTheme();
     const isDark = theme === "dark";
+    const bgColor = isDark ? "#0a0a0a" : "#ffffff";
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -166,7 +178,40 @@ export function GraphCanvas({
     ctx.setLineDash([]);
 
     const zoomLevel = transform.k;
-    const showLabels = zoomLevel > 1.5;
+    const canvasW = canvas.width / dpr;
+    const canvasH = canvas.height / dpr;
+
+    // Collect label candidates: only nodes where zoom * radius > 8
+    const labelCandidates: { node: SimNode; screenX: number; screenY: number; volume: number }[] = [];
+    for (const node of nodesRef.current) {
+      if (zoomLevel * node.radius > 8) {
+        const sx = transform.x + node.x * zoomLevel;
+        const sy = transform.y + node.y * zoomLevel;
+        if (sx > -100 && sx < canvasW + 100 && sy > -50 && sy < canvasH + 50) {
+          labelCandidates.push({ node, screenX: sx, screenY: sy, volume: getNodeVolume(node) });
+        }
+      }
+    }
+
+    // Grid-based deduplication: one label per cell, highest volume wins
+    const gridCols = Math.ceil(canvasW / LABEL_GRID_CELL);
+    const labelGrid = new Map<number, typeof labelCandidates[0]>();
+    for (const c of labelCandidates) {
+      const col = Math.floor(c.screenX / LABEL_GRID_CELL);
+      const row = Math.floor(c.screenY / LABEL_GRID_CELL);
+      const key = row * gridCols + col;
+      const existing = labelGrid.get(key);
+      if (!existing || c.volume > existing.volume) {
+        labelGrid.set(key, c);
+      }
+    }
+    const visibleLabels = new Set<string>();
+    for (const c of labelGrid.values()) {
+      visibleLabels.add(c.node.id);
+    }
+    // Always show hovered/selected labels
+    if (hoveredId) visibleLabels.add(hoveredId);
+    if (selectedId) visibleLabels.add(selectedId);
 
     for (const node of nodesRef.current) {
       const color = platformColors[node.platform] ?? "#7c7c7c";
@@ -211,15 +256,32 @@ export function GraphCanvas({
         ctx.stroke();
       }
 
-      if (showLabels) {
+      if (visibleLabels.has(node.id)) {
         const label =
           node.title.length > 40 ? node.title.slice(0, 40) + "..." : node.title;
-        const fontSize = Math.max(10 / transform.k, 8);
+        const rawFontSize = 12 / transform.k;
+        const fontSize = Math.max(8, Math.min(14, rawFontSize));
         ctx.font = `${fontSize}px var(--font-jetbrains-mono), monospace`;
-        ctx.fillStyle = isDark ? "#e5e5e5" : "#0a0a0a";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(label, node.x, node.y + node.radius + 3 / transform.k);
+
+        const textWidth = ctx.measureText(label).width;
+        const textX = node.x;
+        const textY = node.y + node.radius + 3 / transform.k;
+        const pad = 1 / transform.k;
+
+        ctx.fillStyle = bgColor;
+        ctx.globalAlpha = alpha * 0.85;
+        ctx.fillRect(
+          textX - textWidth / 2 - pad,
+          textY - pad,
+          textWidth + pad * 2,
+          fontSize + pad * 2,
+        );
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = isDark ? "#e5e5e5" : "#0a0a0a";
+        ctx.fillText(label, textX, textY);
       }
 
       ctx.globalAlpha = 1;
@@ -255,7 +317,6 @@ export function GraphCanvas({
     const lineStartX = legendX + 8;
     const lineEndX = legendX + 34;
 
-    // Solid = logical
     ctx.beginPath();
     ctx.setLineDash([]);
     ctx.moveTo(lineStartX, lineY1);
@@ -267,7 +328,6 @@ export function GraphCanvas({
     ctx.globalAlpha = 1;
     ctx.fillText("solid = logical", textX, lineY1);
 
-    // Dashed = statistical
     ctx.beginPath();
     ctx.setLineDash([6, 4]);
     ctx.moveTo(lineStartX, lineY2);
@@ -279,7 +339,6 @@ export function GraphCanvas({
     ctx.setLineDash([]);
     ctx.fillText("dashed = statistical", textX, lineY2);
 
-    // Dotted = semantic
     ctx.beginPath();
     ctx.setLineDash([2, 3]);
     ctx.moveTo(lineStartX, lineY3);
@@ -291,7 +350,6 @@ export function GraphCanvas({
     ctx.setLineDash([]);
     ctx.fillText("dotted = semantic", textX, lineY3);
 
-    // Note
     ctx.font = "10px var(--font-jetbrains-mono), monospace";
     ctx.globalAlpha = 0.5;
     ctx.fillText("Circle size = log(volume). Click for details.", legendX + 8, legendY + 58);
@@ -303,6 +361,10 @@ export function GraphCanvas({
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
+
+    layoutReadyRef.current = false;
+    setLayoutProgress(0);
+    setLayoutDone(false);
 
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
@@ -339,6 +401,14 @@ export function GraphCanvas({
     const cx = rect.width / 2;
     const cy = rect.height / 2;
 
+    // Build category centroids for clustering force
+    const categoryNodes = new Map<string, SimNode[]>();
+    for (const node of nodes) {
+      const cat = node.category ?? "__none__";
+      if (!categoryNodes.has(cat)) categoryNodes.set(cat, []);
+      categoryNodes.get(cat)!.push(node);
+    }
+
     const simulation = d3
       .forceSimulation<SimNode>(nodes)
       .force(
@@ -346,22 +416,68 @@ export function GraphCanvas({
         d3
           .forceLink<SimNode, SimLink>(links)
           .id((d) => d.id)
-          .distance((d) => 80 + (1 - Math.abs(d.score)) * 120)
-          .strength((d) => Math.abs(d.score) * 0.5),
+          .distance((d) => {
+            if (d.relationClass === "semantic") return 160 + (1 - Math.abs(d.score)) * 200;
+            return 80 + (1 - Math.abs(d.score)) * 120;
+          })
+          .strength((d) => {
+            if (d.relationClass === "semantic") return Math.abs(d.score) * 0.2;
+            return Math.abs(d.score) * 0.5;
+          }),
       )
-      .force("charge", d3.forceManyBody().strength(-200).distanceMax(400))
-      .force("center", d3.forceCenter(cx, cy))
+      .force("charge", d3.forceManyBody().strength(-150).distanceMax(500))
+      .force("center", d3.forceCenter(cx, cy).strength(0.03))
       .force(
         "collision",
         d3.forceCollide<SimNode>().radius((d) => d.radius + 2),
       )
+      .force("cluster", () => {
+        for (const [, group] of categoryNodes) {
+          if (group.length < 2) continue;
+          let avgX = 0, avgY = 0;
+          for (const n of group) { avgX += n.x; avgY += n.y; }
+          avgX /= group.length;
+          avgY /= group.length;
+          for (const n of group) {
+            n.x += (avgX - n.x) * 0.005;
+            n.y += (avgY - n.y) * 0.005;
+          }
+        }
+      })
       .alphaDecay(0.02)
-      .on("tick", () => {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(draw);
-      });
+      .stop();
 
     simulationRef.current = simulation;
+
+    // Pre-compute layout in chunks to avoid blocking UI entirely
+    let ticksDone = 0;
+    const chunkSize = 15;
+
+    function tickChunk() {
+      const end = Math.min(ticksDone + chunkSize, PRE_TICK_COUNT);
+      for (let i = ticksDone; i < end; i++) {
+        simulation.tick();
+      }
+      ticksDone = end;
+      setLayoutProgress(Math.round((ticksDone / PRE_TICK_COUNT) * 100));
+
+      if (ticksDone < PRE_TICK_COUNT) {
+        requestAnimationFrame(tickChunk);
+      } else {
+        layoutReadyRef.current = true;
+        setLayoutDone(true);
+
+        simulation.on("tick", () => {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(draw);
+        });
+        simulation.alpha(0.05).restart();
+
+        draw();
+        setupInteraction();
+      }
+    }
+    requestAnimationFrame(tickChunk);
 
     const d3CanvasSel = d3.select(canvas);
     const zoom = d3
@@ -433,111 +549,118 @@ export function GraphCanvas({
       return closest;
     }
 
-    function handleMouseMove(event: MouseEvent) {
-      const rect = canvas!.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const node = getNodeAtPoint(x, y);
+    let mouseMoveHandler: ((event: MouseEvent) => void) | null = null;
+    let clickHandler: ((event: MouseEvent) => void) | null = null;
+    let mouseLeaveHandler: (() => void) | null = null;
 
-      const prevHovered = hoveredRef.current;
-      const prevEdge = hoveredEdgeRef.current;
+    function setupInteraction() {
+      if (!canvas) return;
+      mouseMoveHandler = (event: MouseEvent) => {
+        const rect = canvas!.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const node = getNodeAtPoint(x, y);
 
-      if (node) {
-        hoveredRef.current = node.id;
-        hoveredEdgeRef.current = null;
-      } else {
-        hoveredRef.current = null;
-        const edge = getEdgeAtPoint(x, y);
-        hoveredEdgeRef.current = edge?.id ?? null;
-      }
+        const prevHovered = hoveredRef.current;
+        const prevEdge = hoveredEdgeRef.current;
 
-      const changed = prevHovered !== hoveredRef.current || prevEdge !== hoveredEdgeRef.current;
-
-      if (changed) {
-        onNodeHover(hoveredRef.current);
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(draw);
-      }
-
-      const tooltip = tooltipRef.current;
-      if (tooltip) {
         if (node) {
-          const prob = node.currentProbability
-            ? `${(parseFloat(node.currentProbability) * 100).toFixed(1)}%`
-            : "--";
-          const vol = node.volumeUsd
-            ? `$${parseFloat(node.volumeUsd).toLocaleString("en-US", { maximumFractionDigits: 0 })}`
-            : "--";
-          tooltip.innerHTML =
-            `<div class="font-mono text-xs" style="max-width:280px">` +
-            `<div class="font-semibold" style="word-break:break-word">${node.title}</div>` +
-            `<div class="text-text-secondary mt-1">${node.platform} &middot; ${prob} &middot; ${vol}</div>` +
-            `</div>`;
-          tooltip.style.display = "block";
-        } else if (hoveredEdgeRef.current) {
-          const link = linksRef.current.find((l) => l.id === hoveredEdgeRef.current);
-          if (link) {
-            const src = link.source as SimNode;
-            const tgt = link.target as SimNode;
-            const srcTitle = src.title.length > 36 ? src.title.slice(0, 36) + "..." : src.title;
-            const tgtTitle = tgt.title.length > 36 ? tgt.title.slice(0, 36) + "..." : tgt.title;
+          hoveredRef.current = node.id;
+          hoveredEdgeRef.current = null;
+        } else {
+          hoveredRef.current = null;
+          const edge = getEdgeAtPoint(x, y);
+          hoveredEdgeRef.current = edge?.id ?? null;
+        }
+
+        const changed = prevHovered !== hoveredRef.current || prevEdge !== hoveredEdgeRef.current;
+
+        if (changed) {
+          onNodeHover(hoveredRef.current);
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(draw);
+        }
+
+        const tooltip = tooltipRef.current;
+        if (tooltip) {
+          if (node) {
+            const prob = node.currentProbability
+              ? `${(parseFloat(node.currentProbability) * 100).toFixed(1)}%`
+              : "--";
+            const vol = node.volumeUsd
+              ? `$${parseFloat(node.volumeUsd).toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+              : "--";
             tooltip.innerHTML =
-              `<div class="font-mono text-xs" style="max-width:300px">` +
-              `<div style="word-break:break-word">${srcTitle}</div>` +
-              `<div class="text-text-secondary my-0.5" style="font-size:10px">[${classLabel(link.relationClass)}] ${link.relationType}</div>` +
-              `<div style="word-break:break-word">${tgtTitle}</div>` +
-              `<div class="text-text-secondary mt-1">score: ${link.score.toFixed(3)}</div>` +
+              `<div class="font-mono text-xs" style="max-width:280px">` +
+              `<div class="font-semibold" style="word-break:break-word">${node.title}</div>` +
+              `<div class="text-text-secondary mt-1">${node.platform} &middot; ${prob} &middot; ${vol}</div>` +
               `</div>`;
             tooltip.style.display = "block";
+          } else if (hoveredEdgeRef.current) {
+            const link = linksRef.current.find((l) => l.id === hoveredEdgeRef.current);
+            if (link) {
+              const src = link.source as SimNode;
+              const tgt = link.target as SimNode;
+              const srcTitle = src.title.length > 36 ? src.title.slice(0, 36) + "..." : src.title;
+              const tgtTitle = tgt.title.length > 36 ? tgt.title.slice(0, 36) + "..." : tgt.title;
+              tooltip.innerHTML =
+                `<div class="font-mono text-xs" style="max-width:300px">` +
+                `<div style="word-break:break-word">${srcTitle}</div>` +
+                `<div class="text-text-secondary my-0.5" style="font-size:10px">[${classLabel(link.relationClass)}] ${link.relationType}</div>` +
+                `<div style="word-break:break-word">${tgtTitle}</div>` +
+                `<div class="text-text-secondary mt-1">score: ${link.score.toFixed(3)}</div>` +
+                `</div>`;
+              tooltip.style.display = "block";
+            }
+          } else {
+            tooltip.style.display = "none";
           }
-        } else {
-          tooltip.style.display = "none";
+
+          if (tooltip.style.display !== "none") {
+            const tipRect = tooltip.getBoundingClientRect();
+            const containerRect = containerRef.current!.getBoundingClientRect();
+            let tipX = event.clientX - containerRect.left + 12;
+            let tipY = event.clientY - containerRect.top - 10;
+            if (tipX + tipRect.width > containerRect.width) {
+              tipX = event.clientX - containerRect.left - tipRect.width - 12;
+            }
+            if (tipY < 0) tipY = event.clientY - containerRect.top + 20;
+            tooltip.style.left = `${tipX}px`;
+            tooltip.style.top = `${tipY}px`;
+          }
         }
 
-        if (tooltip.style.display !== "none") {
-          const tipRect = tooltip.getBoundingClientRect();
-          const containerRect = containerRef.current!.getBoundingClientRect();
-          let tipX = event.clientX - containerRect.left + 12;
-          let tipY = event.clientY - containerRect.top - 10;
-          if (tipX + tipRect.width > containerRect.width) {
-            tipX = event.clientX - containerRect.left - tipRect.width - 12;
-          }
-          if (tipY < 0) tipY = event.clientY - containerRect.top + 20;
-          tooltip.style.left = `${tipX}px`;
-          tooltip.style.top = `${tipY}px`;
+        canvas!.style.cursor = node || hoveredEdgeRef.current ? "pointer" : "grab";
+      };
+
+      clickHandler = (event: MouseEvent) => {
+        const rect = canvas!.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const node = getNodeAtPoint(x, y);
+        if (node) {
+          onNodeClick(node.id);
+          return;
         }
-      }
+        const edge = getEdgeAtPoint(x, y);
+        if (edge) {
+          onEdgeClick(edge.id);
+        }
+      };
 
-      canvas!.style.cursor = node || hoveredEdgeRef.current ? "pointer" : "grab";
+      mouseLeaveHandler = () => {
+        hoveredRef.current = null;
+        hoveredEdgeRef.current = null;
+        onNodeHover(null);
+        if (tooltipRef.current) tooltipRef.current.style.display = "none";
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(draw);
+      };
+
+      canvas.addEventListener("mousemove", mouseMoveHandler);
+      canvas.addEventListener("click", clickHandler);
+      canvas.addEventListener("mouseleave", mouseLeaveHandler);
     }
-
-    function handleClick(event: MouseEvent) {
-      const rect = canvas!.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const node = getNodeAtPoint(x, y);
-      if (node) {
-        onNodeClick(node.id);
-        return;
-      }
-      const edge = getEdgeAtPoint(x, y);
-      if (edge) {
-        onEdgeClick(edge.id);
-      }
-    }
-
-    function handleMouseLeave() {
-      hoveredRef.current = null;
-      hoveredEdgeRef.current = null;
-      onNodeHover(null);
-      if (tooltipRef.current) tooltipRef.current.style.display = "none";
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(draw);
-    }
-
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("click", handleClick);
-    canvas.addEventListener("mouseleave", handleMouseLeave);
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -546,7 +669,7 @@ export function GraphCanvas({
         canvas.height = height * dpr;
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
-        simulation.force("center", d3.forceCenter(width / 2, height / 2));
+        simulation.force("center", d3.forceCenter(width / 2, height / 2).strength(0.03));
         simulation.alpha(0.1).restart();
       }
     });
@@ -555,14 +678,15 @@ export function GraphCanvas({
     return () => {
       simulation.stop();
       cancelAnimationFrame(rafRef.current);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("click", handleClick);
-      canvas.removeEventListener("mouseleave", handleMouseLeave);
+      if (mouseMoveHandler) canvas.removeEventListener("mousemove", mouseMoveHandler);
+      if (clickHandler) canvas.removeEventListener("click", clickHandler);
+      if (mouseLeaveHandler) canvas.removeEventListener("mouseleave", mouseLeaveHandler);
       resizeObserver.disconnect();
     };
   }, [markets, edges, draw, onNodeClick, onNodeHover, onEdgeClick, centerOnNodeRef]);
 
   useEffect(() => {
+    if (!layoutReadyRef.current) return;
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(draw);
   }, [selectedId, selectedEdgeId, draw]);
@@ -575,6 +699,13 @@ export function GraphCanvas({
         role="img"
         aria-label="Prediction market dependency graph. Use mouse to pan, scroll to zoom, click nodes or edges for details."
       />
+      {!layoutDone && markets.length > 0 && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <span className="font-mono text-sm text-text-secondary">
+            Computing layout... {layoutProgress}%
+          </span>
+        </div>
+      )}
       <div
         ref={tooltipRef}
         className="absolute pointer-events-none bg-surface border border-border px-2 py-1.5"
