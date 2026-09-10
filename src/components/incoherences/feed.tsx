@@ -36,43 +36,76 @@ interface ApiError {
   error: { code: string; message: string };
 }
 
-const VIOLATION_LABELS: Record<string, string> = {
-  probability_sum: "PROBABILITY SUM",
-  probability_divergence: "PROBABILITY DIVERGENCE",
-  mutual_exclusion: "MUTUAL EXCLUSION",
-  implication_violation: "IMPLICATION VIOLATION",
+const CLASS_LABELS: Record<string, string> = {
+  contradiction: "CONTRADICTION",
+  divergence: "DIVERGENCE",
 };
 
-const CLASS_LABELS: Record<string, { label: string; explanation: string }> = {
-  contradiction: {
-    label: "CONTRADICTION",
-    explanation: "These prices are logically impossible given the relationship between these markets.",
-  },
-  divergence: {
-    label: "DIVERGENCE",
-    explanation: "These prices are statistically unusual but not necessarily wrong.",
-  },
+const TAB_LEGENDS: Record<string, string> = {
+  contradiction: "Prices that are logically impossible given hard constraints.",
+  divergence: "Prices that are statistically unusual given observed relationships.",
 };
 
 const PAGE_SIZE = 20;
 
-function formatRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (seconds < 60) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
-
 function formatProbability(prob: string | null): string {
   if (prob === null) return "--";
   return `${(parseFloat(prob) * 100).toFixed(1)}%`;
+}
+
+function formatDivergenceText(
+  inc: Incoherence,
+): { primary: string; secondary: string } | null {
+  const arb = inc.impliedArbitrage;
+  if (!arb) return null;
+
+  if (inc.violationType === "probability_divergence") {
+    const div = arb.divergence as number | undefined;
+    const expectedMax = arb.expectedMaxDivergence as number | undefined;
+    if (div == null) return null;
+    return {
+      primary: `${(div * 100).toFixed(1)}pp divergence`,
+      secondary: `expected max: ${expectedMax != null ? (expectedMax * 100).toFixed(1) : "?"}pp`,
+    };
+  }
+
+  if (inc.violationType === "probability_sum") {
+    const deviation = arb.deviation as number | undefined;
+    const sum = arb.sum as number | undefined;
+    if (deviation == null) return null;
+    return {
+      primary: `${(deviation * 100).toFixed(1)}pp sum deviation`,
+      secondary: `sum: ${sum != null ? (sum * 100).toFixed(1) : "?"}%`,
+    };
+  }
+
+  return null;
+}
+
+function formatRelationText(inc: Incoherence): string | null {
+  const arb = inc.impliedArbitrage;
+
+  if (inc.violationType === "probability_divergence" && arb) {
+    const parts: string[] = [];
+    if (arb.relationClass) parts.push(arb.relationClass as string);
+    if (arb.relationType) parts.push(arb.relationType as string);
+    const score = arb.edgeScore as number | undefined;
+    if (score != null) parts.push(`score: ${score.toFixed(2)}`);
+    return parts.length > 0 ? parts.join(" / ") : null;
+  }
+
+  if (inc.violationType === "probability_sum" && arb) {
+    const parts: string[] = ["probability sum"];
+    if (arb.collectivelyExhaustive) {
+      parts.push("collectively exhaustive");
+    } else {
+      parts.push("mutually exclusive");
+    }
+    if (arb.direction) parts.push(arb.direction as string);
+    return parts.join(" / ");
+  }
+
+  return null;
 }
 
 type ClassTab = "all" | "contradiction" | "divergence";
@@ -152,21 +185,28 @@ export function IncoherencesFeed() {
 
   return (
     <div>
-      <div className="flex gap-0 mb-6 border-b border-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => switchTab(tab.key)}
-            className={`px-4 py-2 text-sm font-mono bg-transparent border-none cursor-pointer ${
-              classTab === tab.key
-                ? "text-foreground border-b-2 border-b-accent -mb-px"
-                : "text-text-secondary"
-            }`}
-            style={{ borderRadius: 0 }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-6">
+        <div className="flex gap-0 border-b border-border">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => switchTab(tab.key)}
+              className={`px-4 py-2 text-sm font-mono bg-transparent border-none cursor-pointer ${
+                classTab === tab.key
+                  ? "text-foreground border-b-2 border-b-accent -mb-px"
+                  : "text-text-secondary"
+              }`}
+              style={{ borderRadius: 0 }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {classTab !== "all" && TAB_LEGENDS[classTab] && (
+          <p className="text-xs text-text-secondary mt-2 font-mono">
+            {TAB_LEGENDS[classTab]}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-4 mb-8 border-b border-border pb-4">
@@ -257,87 +297,84 @@ export function IncoherencesFeed() {
       {!loading && !error && data && data.incoherences.length > 0 && (
         <div>
           {data.incoherences.map((inc) => {
-            const classInfo = CLASS_LABELS[inc.detectionClass];
+            const classLabel = CLASS_LABELS[inc.detectionClass];
             const isContradiction = inc.detectionClass === "contradiction";
-            const arbType = inc.impliedArbitrage?.type as string | undefined;
+            const arb = inc.impliedArbitrage;
+
+            const divergenceText = formatDivergenceText(inc);
+            const relationText = formatRelationText(inc);
 
             return (
               <div key={inc.id} className="py-4 border-b border-border">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <span className="font-mono text-sm text-foreground whitespace-nowrap shrink-0">
-                      {parseFloat(inc.severity).toFixed(2)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        {classInfo && (
-                          <span className="font-mono text-xs font-bold text-foreground">
-                            [{classInfo.label}]
-                          </span>
-                        )}
-                        <span className="font-mono text-xs text-text-secondary">
-                          [{VIOLATION_LABELS[inc.violationType] ?? inc.violationType}]
-                        </span>
-                      </div>
-                      {classInfo && (
-                        <p className="text-xs text-text-secondary mt-0.5 italic">
-                          {classInfo.explanation}
-                        </p>
-                      )}
-                      <p className="text-sm text-foreground mt-1">
-                        {inc.description}
-                      </p>
-
-                      <div className="mt-3">
-                        {inc.involvedMarkets.map((market) => (
-                          <div
-                            key={market.id}
-                            className="text-sm py-0.5 flex items-baseline gap-2"
-                          >
-                            <Link
-                              href={`/explore?focus=${market.id}`}
-                              className="text-accent no-underline hover:underline truncate"
-                            >
-                              {market.title}
-                            </Link>
-                            <span className="text-xs text-text-secondary font-mono whitespace-nowrap">
-                              [{market.platform}]
-                            </span>
-                            <span className="text-xs font-mono text-foreground whitespace-nowrap">
-                              {formatProbability(market.currentProbability)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {inc.impliedArbitrage && (
-                        <div className="mt-3">
-                          <button
-                            onClick={() => toggleArbitrage(inc.id)}
-                            className="text-xs text-text-secondary font-mono cursor-pointer bg-transparent border-none p-0 hover:text-foreground"
-                            aria-expanded={expandedArbitrage.has(inc.id)}
-                            aria-label={isContradiction ? "Toggle implied arbitrage details" : "Toggle suggested position details"}
-                          >
-                            {expandedArbitrage.has(inc.id)
-                              ? `[-] ${isContradiction ? "implied arbitrage" : "suggested position"}`
-                              : `[+] ${isContradiction ? "implied arbitrage" : "suggested position"}`}
-                          </button>
-
-                          {expandedArbitrage.has(inc.id) && (
-                            <ArbitrageTable
-                              data={inc.impliedArbitrage}
-                              violationType={inc.violationType}
-                              detectionClass={inc.detectionClass}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs text-text-secondary whitespace-nowrap shrink-0">
-                    Detected {formatRelativeTime(inc.detectedAt)}
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <span className="font-mono text-sm text-foreground shrink-0">
+                    {parseFloat(inc.severity).toFixed(2)}
+                  </span>
+                  {divergenceText && (
+                    <>
+                      <span className="font-mono text-base text-foreground">
+                        {divergenceText.primary}
+                      </span>
+                      <span className="font-mono text-xs text-text-secondary">
+                        ({divergenceText.secondary})
+                      </span>
+                    </>
+                  )}
+                  <span className="ml-auto font-mono text-xs font-bold text-foreground shrink-0">
+                    [{classLabel ?? inc.detectionClass.toUpperCase()}]
                   </span>
                 </div>
+
+                {relationText && (
+                  <div className="mt-1 font-mono text-xs text-text-secondary">
+                    {relationText}
+                  </div>
+                )}
+
+                <div className="mt-2">
+                  {inc.involvedMarkets.map((market) => (
+                    <div
+                      key={market.id}
+                      className="text-sm py-0.5 flex items-baseline gap-2"
+                    >
+                      <Link
+                        href={`/explore?focus=${market.id}`}
+                        className="text-accent no-underline hover:underline truncate"
+                      >
+                        {market.title}
+                      </Link>
+                      <span className="text-xs text-text-secondary font-mono whitespace-nowrap">
+                        [{market.platform}]
+                      </span>
+                      <span className="text-xs font-mono text-foreground whitespace-nowrap">
+                        {formatProbability(market.currentProbability)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {arb && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => toggleArbitrage(inc.id)}
+                      className="text-xs text-text-secondary font-mono cursor-pointer bg-transparent border-none p-0 hover:text-foreground"
+                      aria-expanded={expandedArbitrage.has(inc.id)}
+                      aria-label={isContradiction ? "Toggle implied arbitrage details" : "Toggle suggested position details"}
+                    >
+                      {expandedArbitrage.has(inc.id)
+                        ? `[-] ${isContradiction ? "implied arbitrage" : "suggested position"}`
+                        : `[+] ${isContradiction ? "implied arbitrage" : "suggested position"}`}
+                    </button>
+
+                    {expandedArbitrage.has(inc.id) && (
+                      <ArbitrageTable
+                        data={arb}
+                        violationType={inc.violationType}
+                        detectionClass={inc.detectionClass}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
