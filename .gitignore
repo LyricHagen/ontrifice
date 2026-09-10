@@ -44,3 +44,4 @@ next-env.d.ts
 
 # project documentation (local only)
 CODEBASE.md
+.env*

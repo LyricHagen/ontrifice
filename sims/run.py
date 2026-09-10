@@ -5,8 +5,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from browser_use import Agent
-from langchain_anthropic import ChatAnthropic
+from browser_use import Agent, ChatAnthropic
 from personas import ARCHETYPES, generate_personas
 
 BASE_URL = os.environ.get("ONTRIFICE_URL", "https://ontrifice.vercel.app")
@@ -103,28 +102,40 @@ async def run_persona(persona: dict, llm: ChatAnthropic) -> dict:
     try:
         result = await agent.run(max_steps=30)
 
-        for step in result.history:
-            for action in step.model_output.action if step.model_output else []:
-                action_dict = action.model_dump() if hasattr(action, "model_dump") else str(action)
-                action_history.append(action_dict)
+        try:
+            for step in result.history:
+                for action in step.model_output.action if step.model_output else []:
+                    try:
+                        action_dict = action.model_dump(exclude_none=True, mode="json")
+                    except Exception:
+                        action_dict = str(action)
+                    action_history.append(action_dict)
 
-            if step.state and step.state.url:
-                url = step.state.url
-                if url not in pages_visited:
-                    pages_visited.append(url)
+                if step.state:
+                    url = getattr(step.state, "url", None)
+                    if url and url not in pages_visited:
+                        pages_visited.append(url)
 
-            if step.state and step.state.error:
-                errors.append(step.state.error)
+                for action_result in step.result:
+                    if action_result.error:
+                        errors.append(action_result.error)
+        except Exception as e:
+            errors.append(f"history extraction failed: {e}")
 
-        result_text = result.final_result() or ""
-        if "sign" in result_text.lower() and "up" in result_text.lower():
-            signed_up = True
-        if "api key" in result_text.lower() or "api_key" in result_text.lower():
-            generated_api_key = True
+        try:
+            result_text = result.final_result() or ""
+            if "sign" in result_text.lower() and "up" in result_text.lower():
+                signed_up = True
+            if "api key" in result_text.lower() or "api_key" in result_text.lower():
+                generated_api_key = True
+        except Exception:
+            pass
 
-        for step in result.history:
-            if step.state and step.state.url:
-                url = step.state.url
+        try:
+            for step in result.history:
+                url = getattr(step.state, "url", None) if step.state else None
+                if not url:
+                    continue
                 if "/signup" in url or "/login" in url:
                     for a in (step.model_output.action if step.model_output else []):
                         a_str = str(a)
@@ -132,6 +143,8 @@ async def run_persona(persona: dict, llm: ChatAnthropic) -> dict:
                             signed_up = True
                 if "/settings" in url:
                     generated_api_key = True
+        except Exception:
+            pass
 
     except Exception as e:
         errors.append(f"agent crashed: {str(e)}")
@@ -160,7 +173,7 @@ async def main():
     print(f"target: {BASE_URL}\n")
 
     llm = ChatAnthropic(
-        model="claude-haiku-4-5-20250514",
+        model="claude-haiku-4-5-20251001",
         temperature=0.7,
         max_tokens=1024,
     )
