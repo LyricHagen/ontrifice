@@ -113,7 +113,7 @@ export default async function Home({
             Limitless
           </a>
           .{" "}
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/LyricHagen/ontrifice" target="_blank" rel="noopener noreferrer">
             Open source
           </a>
           .
