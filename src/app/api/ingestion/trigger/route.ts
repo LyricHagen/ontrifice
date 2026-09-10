@@ -5,6 +5,7 @@ import { handleApiError } from "@/lib/errors";
 import { normalizeMarket } from "@/lib/ingestion/normalizer";
 import { createPolymarketClient } from "@/lib/ingestion/clients/polymarket";
 import { createKalshiClient } from "@/lib/ingestion/clients/kalshi";
+import { runFullPipeline } from "@/lib/engine/orchestrator";
 import type { Platform, NormalizedMarket } from "@/lib/ingestion/types";
 
 const MAX_DURATION_MS = 8000;
@@ -155,10 +156,18 @@ export async function GET() {
 
     await saveState(state);
 
+    let graphSummary = null;
+    try {
+      graphSummary = await runFullPipeline();
+    } catch (error) {
+      errors.push(`graph: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     return NextResponse.json({
       marketsProcessed,
       marketsCreated,
       marketsUpdated,
+      graphSummary,
       errors,
       nextPlatform: state.platform,
       nextOffset: state.offset,

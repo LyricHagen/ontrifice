@@ -1,6 +1,5 @@
 {
   "crons": [
-    { "path": "/api/ingestion/trigger", "schedule": "0 */12 * * *" },
-    { "path": "/api/graph/compute", "schedule": "30 */12 * * *" }
+    { "path": "/api/ingestion/trigger", "schedule": "0 0 * * *" }
   ]
 }
