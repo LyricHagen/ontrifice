@@ -1,20 +1,31 @@
 # Ontrifice
 
-Live coherence engine for prediction markets.
+Cross-market neg risk engine for prediction markets.
 
-Treats the entire prediction market universe as a connected dependency graph and surfaces cross-event logical inconsistencies, implied conditional probabilities, and cascade alerts across Polymarket, Kalshi, and Limitless.
+Proves structural relationships between contracts across Polymarket and Kalshi — mutual exclusion, implication, exhaustive sets — and uses them to compute tighter max-loss bounds on multi-leg portfolios. The dependency graph is the inference layer; the collateral solver is the output layer.
+
+Tighter collateral → tighter quotes → better prices → more volume.
+
+## How it works
+
+1. Ingests markets from Polymarket and Kalshi, normalizes contracts into a shared schema
+2. Detects structural relationships between markets (neg risk groups, event groupings, implication patterns)
+3. Given a portfolio of positions, enumerates all feasible resolution vectors constrained by proven relationships
+4. Returns true max loss, binding constraints (which relationships actually saved collateral), and the worst-case resolution scenario
+
+For realistic portfolio sizes (up to ~25 markets), brute-force enumeration with constraint pruning is fast enough. Larger portfolios fall back to greedy approximation.
 
 ## Stack
 
 - Next.js 15 (App Router, TypeScript strict)
 - Tailwind CSS 4
 - PostgreSQL with Drizzle ORM
-- JetBrains Mono + IBM Plex Sans (via next/font)
+- JetBrains Mono + IBM Plex Sans
 
 ## Setup
 
 ```bash
-git clone https://github.com/your-org/ontrifice.git
+git clone https://github.com/LyricHagen/ontrifice.git
 cd ontrifice
 npm install
 ```
@@ -22,29 +33,42 @@ npm install
 Create a `.env` file:
 
 ```
-DATABASE_URL=postgresql://user:password@localhost:5432/ontrifice
-NEXTAUTH_SECRET=your-secret-here
-NEXTAUTH_URL=http://localhost:3000
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ontrifice
+AUTH_SECRET=<generate with: openssl rand -base64 33>
 ```
 
-Run migrations and seed:
+Push the schema and start:
 
 ```bash
 npx drizzle-kit push
-npx tsx src/db/seed/index.ts
-```
-
-Start the dev server:
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+## Routes
+
+```
+/             landing
+/analyzer     portfolio collateral analyzer
+/constraints  proven market relationships browser
+/graph        relationship network visualization
+/docs         API documentation
+```
 
 ## API
 
-Full API documentation is available at [/docs](http://localhost:3000/docs).
+Core endpoints:
+
+```
+POST /api/portfolio/analyze     compute collateral for a set of positions
+POST /api/portfolio/suggest     suggest markets that could reduce collateral
+GET  /api/constraints           list proven relationships
+GET  /api/constraints/:id       relationship detail with proof
+GET  /api/markets               list markets
+GET  /api/markets/:id           market detail with edges
+GET  /api/markets/:id/relationships  all relationships for a market
+```
+
+Full documentation at [/docs](https://ontrifice.dev/docs).
 
 ## License
 
