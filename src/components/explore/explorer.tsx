@@ -327,11 +327,10 @@ export function Explorer({ focusMarketId }: { focusMarketId: string | null }) {
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="max-w-md px-4 text-center">
               <p className="font-mono text-sm text-foreground mb-2">
-                No markets found.
+                No markets ingested yet.
               </p>
               <p className="font-mono text-xs text-text-secondary">
-                The ingestion pipeline may not have run yet. Try triggering it
-                from the API or check /docs. (ERR_NO_MARKETS)
+                The graph will appear after the ingestion pipeline runs.
               </p>
             </div>
           </div>

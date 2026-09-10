@@ -453,8 +453,7 @@ function BrowseSection() {
     return (
       <div className="border border-border p-4 bg-surface">
         <p className="text-sm text-text-secondary">
-          No computations yet. Use the query interface above to compute your
-          first model-implied probability.
+          No computations yet.
         </p>
       </div>
     );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, asc, and, count, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, ValidationError } from "@/lib/errors";
+import { handleApiError, ValidationError, DatabaseError } from "@/lib/errors";
 
 const VALID_SORTS = ["severity", "detected_at", "market_count"] as const;
 const VALID_STATUSES = ["active", "resolved", "expired"] as const;
@@ -111,19 +111,36 @@ export async function GET(request: NextRequest) {
       orderBy = orderFn(schema.incoherences.detectedAt);
     }
 
-    const [incoherences, totalResult] = await Promise.all([
-      db
-        .select()
-        .from(schema.incoherences)
-        .where(where)
-        .orderBy(orderBy)
-        .limit(limit)
-        .offset((page - 1) * limit),
-      db
-        .select({ count: count() })
-        .from(schema.incoherences)
-        .where(where),
-    ]);
+    let incoherences;
+    let totalResult;
+    try {
+      [incoherences, totalResult] = await Promise.all([
+        db
+          .select()
+          .from(schema.incoherences)
+          .where(where)
+          .orderBy(orderBy)
+          .limit(limit)
+          .offset((page - 1) * limit),
+        db
+          .select({ count: count() })
+          .from(schema.incoherences)
+          .where(where),
+      ]);
+    } catch (error) {
+      throw DatabaseError("select", "incoherences", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (incoherences.length === 0) {
+      return NextResponse.json({
+        incoherences: [],
+        total: 0,
+        page,
+        limit,
+      });
+    }
 
     const allMarketIds = [
       ...new Set(incoherences.flatMap((i) => i.involvedMarketIds)),
@@ -139,18 +156,24 @@ export async function GET(request: NextRequest) {
     >();
 
     if (allMarketIds.length > 0) {
-      const marketsData = await db
-        .select({
-          id: schema.markets.id,
-          title: schema.markets.title,
-          platform: schema.markets.platform,
-          currentProbability: schema.markets.currentProbability,
-        })
-        .from(schema.markets)
-        .where(inArray(schema.markets.id, allMarketIds));
+      try {
+        const marketsData = await db
+          .select({
+            id: schema.markets.id,
+            title: schema.markets.title,
+            platform: schema.markets.platform,
+            currentProbability: schema.markets.currentProbability,
+          })
+          .from(schema.markets)
+          .where(inArray(schema.markets.id, allMarketIds));
 
-      for (const m of marketsData) {
-        marketMap.set(m.id, m);
+        for (const m of marketsData) {
+          marketMap.set(m.id, m);
+        }
+      } catch (error) {
+        throw DatabaseError("select", "markets", {
+          originalError: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -169,7 +192,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       incoherences: enriched,
-      total: totalResult[0].count,
+      total: totalResult[0]?.count ?? 0,
       page,
       limit,
     });

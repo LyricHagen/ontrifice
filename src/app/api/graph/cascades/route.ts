@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, asc, and, count, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, ValidationError } from "@/lib/errors";
+import { handleApiError, ValidationError, DatabaseError } from "@/lib/errors";
 
 const VALID_SORTS = ["detected_at", "trigger_delta"] as const;
 const VALID_STATUSES = ["active", "resolved", "expired"] as const;
@@ -53,19 +53,36 @@ export async function GET(request: NextRequest) {
         ? schema.cascadeAlerts.triggerDelta
         : schema.cascadeAlerts.detectedAt;
 
-    const [alerts, totalResult] = await Promise.all([
-      db
-        .select()
-        .from(schema.cascadeAlerts)
-        .where(where)
-        .orderBy(orderFn(sortColumn))
-        .limit(limit)
-        .offset((page - 1) * limit),
-      db
-        .select({ count: count() })
-        .from(schema.cascadeAlerts)
-        .where(where),
-    ]);
+    let alerts;
+    let totalResult;
+    try {
+      [alerts, totalResult] = await Promise.all([
+        db
+          .select()
+          .from(schema.cascadeAlerts)
+          .where(where)
+          .orderBy(orderFn(sortColumn))
+          .limit(limit)
+          .offset((page - 1) * limit),
+        db
+          .select({ count: count() })
+          .from(schema.cascadeAlerts)
+          .where(where),
+      ]);
+    } catch (error) {
+      throw DatabaseError("select", "cascade_alerts", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (alerts.length === 0) {
+      return NextResponse.json({
+        cascades: [],
+        total: 0,
+        page,
+        limit,
+      });
+    }
 
     const allMarketIds = new Set<string>();
     for (const alert of alerts) {
@@ -86,18 +103,24 @@ export async function GET(request: NextRequest) {
     >();
 
     if (allMarketIds.size > 0) {
-      const marketsData = await db
-        .select({
-          id: schema.markets.id,
-          title: schema.markets.title,
-          platform: schema.markets.platform,
-          currentProbability: schema.markets.currentProbability,
-        })
-        .from(schema.markets)
-        .where(inArray(schema.markets.id, [...allMarketIds]));
+      try {
+        const marketsData = await db
+          .select({
+            id: schema.markets.id,
+            title: schema.markets.title,
+            platform: schema.markets.platform,
+            currentProbability: schema.markets.currentProbability,
+          })
+          .from(schema.markets)
+          .where(inArray(schema.markets.id, [...allMarketIds]));
 
-      for (const m of marketsData) {
-        marketMap.set(m.id, m);
+        for (const m of marketsData) {
+          marketMap.set(m.id, m);
+        }
+      } catch (error) {
+        throw DatabaseError("select", "markets", {
+          originalError: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -120,7 +143,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       cascades: enriched,
-      total: totalResult[0].count,
+      total: totalResult[0]?.count ?? 0,
       page,
       limit,
     });

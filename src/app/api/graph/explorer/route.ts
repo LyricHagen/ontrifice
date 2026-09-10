@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, sql, ilike, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, ValidationError } from "@/lib/errors";
+import { handleApiError, ValidationError, DatabaseError } from "@/lib/errors";
 
 const VALID_CLASSES = ["logical", "statistical", "semantic"] as const;
 
@@ -45,20 +45,27 @@ export async function GET(request: NextRequest) {
     const marketWhere =
       marketConditions.length > 0 ? and(...marketConditions) : undefined;
 
-    const markets = await db
-      .select({
-        id: schema.markets.id,
-        platform: schema.markets.platform,
-        platformMarketId: schema.markets.platformMarketId,
-        title: schema.markets.title,
-        category: schema.markets.category,
-        currentProbability: schema.markets.currentProbability,
-        volumeUsd: schema.markets.volumeUsd,
-        status: schema.markets.status,
-        metadata: schema.markets.metadata,
-      })
-      .from(schema.markets)
-      .where(marketWhere);
+    let markets;
+    try {
+      markets = await db
+        .select({
+          id: schema.markets.id,
+          platform: schema.markets.platform,
+          platformMarketId: schema.markets.platformMarketId,
+          title: schema.markets.title,
+          category: schema.markets.category,
+          currentProbability: schema.markets.currentProbability,
+          volumeUsd: schema.markets.volumeUsd,
+          status: schema.markets.status,
+          metadata: schema.markets.metadata,
+        })
+        .from(schema.markets)
+        .where(marketWhere);
+    } catch (error) {
+      throw DatabaseError("select", "markets", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     const marketIds = markets.map((m) => m.id);
 
@@ -97,23 +104,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const edges = await db
-      .select({
-        id: schema.edges.id,
-        sourceMarketId: schema.edges.sourceMarketId,
-        targetMarketId: schema.edges.targetMarketId,
-        relationClass: schema.edges.relationClass,
-        relationType: schema.edges.relationType,
-        score: schema.edges.score,
-        confidence: schema.edges.confidence,
-        direction: schema.edges.direction,
-        mathematicalSemantics: schema.edges.mathematicalSemantics,
-        modelVersion: schema.edges.modelVersion,
-        sampleSize: schema.edges.sampleSize,
-        resolutionMatchStatus: schema.edges.resolutionMatchStatus,
-      })
-      .from(schema.edges)
-      .where(and(...edgeConditions));
+    let edges;
+    try {
+      edges = await db
+        .select({
+          id: schema.edges.id,
+          sourceMarketId: schema.edges.sourceMarketId,
+          targetMarketId: schema.edges.targetMarketId,
+          relationClass: schema.edges.relationClass,
+          relationType: schema.edges.relationType,
+          score: schema.edges.score,
+          confidence: schema.edges.confidence,
+          direction: schema.edges.direction,
+          mathematicalSemantics: schema.edges.mathematicalSemantics,
+          modelVersion: schema.edges.modelVersion,
+          sampleSize: schema.edges.sampleSize,
+          resolutionMatchStatus: schema.edges.resolutionMatchStatus,
+        })
+        .from(schema.edges)
+        .where(and(...edgeConditions));
+    } catch (error) {
+      throw DatabaseError("select", "edges", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return NextResponse.json({
       markets,

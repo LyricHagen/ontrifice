@@ -193,10 +193,8 @@ export function CascadesFeed() {
 
       {!loading && !error && data && data.cascades.length === 0 && (
         <div className="border border-border p-6 bg-surface">
-          <p className="text-sm text-foreground">
-            No active cascade alerts. This means either no significant market
-            movements occurred recently, or all connected markets reacted within
-            expected timeframes.
+          <p className="text-sm text-text-secondary">
+            No cascade alerts yet.
           </p>
         </div>
       )}

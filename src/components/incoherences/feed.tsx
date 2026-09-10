@@ -248,12 +248,8 @@ export function IncoherencesFeed() {
 
       {!loading && !error && data && data.incoherences.length === 0 && (
         <div className="border border-border p-6 bg-surface">
-          <p className="text-sm text-foreground">
-            No incoherences detected. Either the markets are remarkably coherent
-            right now, or the computation engine hasn&apos;t run recently.
-          </p>
-          <p className="text-xs font-mono text-text-secondary mt-2">
-            ERR_NO_INCOHERENCES
+          <p className="text-sm text-text-secondary">
+            No incoherences detected yet.
           </p>
         </div>
       )}

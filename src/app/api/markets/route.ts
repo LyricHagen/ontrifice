@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, ilike, desc, asc, and, count } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, ValidationError } from "@/lib/errors";
+import { handleApiError, ValidationError, DatabaseError } from "@/lib/errors";
 
 const VALID_SORT_FIELDS = ["volume", "probability", "updated_at"] as const;
 const VALID_ORDER = ["asc", "desc"] as const;
@@ -57,23 +57,31 @@ export async function GET(request: NextRequest) {
 
     const orderFn = orderParam === "asc" ? asc : desc;
 
-    const [markets, totalResult] = await Promise.all([
-      db
-        .select()
-        .from(schema.markets)
-        .where(where)
-        .orderBy(orderFn(sortColumn))
-        .limit(limit)
-        .offset((page - 1) * limit),
-      db
-        .select({ count: count() })
-        .from(schema.markets)
-        .where(where),
-    ]);
+    let markets;
+    let totalResult;
+    try {
+      [markets, totalResult] = await Promise.all([
+        db
+          .select()
+          .from(schema.markets)
+          .where(where)
+          .orderBy(orderFn(sortColumn))
+          .limit(limit)
+          .offset((page - 1) * limit),
+        db
+          .select({ count: count() })
+          .from(schema.markets)
+          .where(where),
+      ]);
+    } catch (error) {
+      throw DatabaseError("select", "markets", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return NextResponse.json({
       markets,
-      total: totalResult[0].count,
+      total: totalResult[0]?.count ?? 0,
       page,
       limit,
     });

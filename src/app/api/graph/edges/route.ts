@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleApiError, ValidationError } from "@/lib/errors";
+import { handleApiError, ValidationError, DatabaseError } from "@/lib/errors";
 import { getNeighbors, getEdges } from "@/lib/engine/graph";
 
 const VALID_CLASSES = ["logical", "statistical", "semantic"] as const;
@@ -30,8 +30,19 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const subgraph = await getNeighbors(marketId, depth, rc);
-      return NextResponse.json(subgraph);
+      let subgraph;
+      try {
+        subgraph = await getNeighbors(marketId, depth, rc);
+      } catch (error) {
+        throw DatabaseError("getNeighbors", "edges", {
+          originalError: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      return NextResponse.json({
+        nodes: subgraph.markets,
+        edges: subgraph.edges,
+      });
     }
 
     const filters: Parameters<typeof getEdges>[0] = {};
@@ -58,8 +69,16 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(params.get("limit") ?? "100", 10);
     filters.limit = Math.min(Math.max(1, limit), 500);
 
-    const edges = await getEdges(filters);
-    return NextResponse.json({ edges, count: edges.length });
+    let edges;
+    try {
+      edges = await getEdges(filters);
+    } catch (error) {
+      throw DatabaseError("getEdges", "edges", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return NextResponse.json({ nodes: [], edges });
   } catch (error) {
     return handleApiError(error);
   }

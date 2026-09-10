@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, or, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, AppError } from "@/lib/errors";
+import { handleApiError, AppError, DatabaseError } from "@/lib/errors";
 
 export async function GET(
   _request: NextRequest,
@@ -10,11 +10,18 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const [market] = await db
-      .select()
-      .from(schema.markets)
-      .where(eq(schema.markets.id, id))
-      .limit(1);
+    let market;
+    try {
+      [market] = await db
+        .select()
+        .from(schema.markets)
+        .where(eq(schema.markets.id, id))
+        .limit(1);
+    } catch (error) {
+      throw DatabaseError("select", "markets", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     if (!market) {
       throw new AppError(
@@ -25,15 +32,22 @@ export async function GET(
       );
     }
 
-    const edges = await db
-      .select()
-      .from(schema.edges)
-      .where(
-        or(
-          eq(schema.edges.sourceMarketId, id),
-          eq(schema.edges.targetMarketId, id),
-        ),
-      );
+    let edges;
+    try {
+      edges = await db
+        .select()
+        .from(schema.edges)
+        .where(
+          or(
+            eq(schema.edges.sourceMarketId, id),
+            eq(schema.edges.targetMarketId, id),
+          ),
+        );
+    } catch (error) {
+      throw DatabaseError("select", "edges", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     const neighborIds = new Set<string>();
     for (const edge of edges) {
@@ -42,18 +56,30 @@ export async function GET(
     }
 
     const idsArray = Array.from(neighborIds);
-    const connectedMarkets =
-      idsArray.length > 0
-        ? await db
-            .select({
-              id: schema.markets.id,
-              title: schema.markets.title,
-              platform: schema.markets.platform,
-              currentProbability: schema.markets.currentProbability,
-            })
-            .from(schema.markets)
-            .where(inArray(schema.markets.id, idsArray))
-        : [];
+    let connectedMarkets: Array<{
+      id: string;
+      title: string;
+      platform: string;
+      currentProbability: string | null;
+    }> = [];
+
+    if (idsArray.length > 0) {
+      try {
+        connectedMarkets = await db
+          .select({
+            id: schema.markets.id,
+            title: schema.markets.title,
+            platform: schema.markets.platform,
+            currentProbability: schema.markets.currentProbability,
+          })
+          .from(schema.markets)
+          .where(inArray(schema.markets.id, idsArray));
+      } catch (error) {
+        throw DatabaseError("select", "markets", {
+          originalError: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     return NextResponse.json({ market, edges, connectedMarkets });
   } catch (error) {

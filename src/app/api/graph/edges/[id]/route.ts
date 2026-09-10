@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, AppError } from "@/lib/errors";
+import { handleApiError, AppError, DatabaseError } from "@/lib/errors";
 
 export async function GET(
   _request: NextRequest,
@@ -10,11 +10,18 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const [edge] = await db
-      .select()
-      .from(schema.edges)
-      .where(eq(schema.edges.id, id))
-      .limit(1);
+    let edge;
+    try {
+      [edge] = await db
+        .select()
+        .from(schema.edges)
+        .where(eq(schema.edges.id, id))
+        .limit(1);
+    } catch (error) {
+      throw DatabaseError("select", "edges", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     if (!edge) {
       throw new AppError(
@@ -25,27 +32,35 @@ export async function GET(
       );
     }
 
-    const [sourceMarket] = await db
-      .select({
-        id: schema.markets.id,
-        title: schema.markets.title,
-        platform: schema.markets.platform,
-        currentProbability: schema.markets.currentProbability,
-      })
-      .from(schema.markets)
-      .where(eq(schema.markets.id, edge.sourceMarketId))
-      .limit(1);
+    let sourceMarket;
+    let targetMarket;
+    try {
+      [sourceMarket] = await db
+        .select({
+          id: schema.markets.id,
+          title: schema.markets.title,
+          platform: schema.markets.platform,
+          currentProbability: schema.markets.currentProbability,
+        })
+        .from(schema.markets)
+        .where(eq(schema.markets.id, edge.sourceMarketId))
+        .limit(1);
 
-    const [targetMarket] = await db
-      .select({
-        id: schema.markets.id,
-        title: schema.markets.title,
-        platform: schema.markets.platform,
-        currentProbability: schema.markets.currentProbability,
-      })
-      .from(schema.markets)
-      .where(eq(schema.markets.id, edge.targetMarketId))
-      .limit(1);
+      [targetMarket] = await db
+        .select({
+          id: schema.markets.id,
+          title: schema.markets.title,
+          platform: schema.markets.platform,
+          currentProbability: schema.markets.currentProbability,
+        })
+        .from(schema.markets)
+        .where(eq(schema.markets.id, edge.targetMarketId))
+        .limit(1);
+    } catch (error) {
+      throw DatabaseError("select", "markets", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return NextResponse.json({
       edge,
