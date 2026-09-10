@@ -1,30 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import crypto from "crypto";
-import { db, schema } from "@/db";
-import { handleApiError, AuthError } from "@/lib/errors";
+import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/errors";
 import { runFullPipeline } from "@/lib/engine/orchestrator";
 
-async function validateApiKey(request: NextRequest): Promise<void> {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) throw AuthError("missing_api_key");
-
-  const key = authHeader.replace(/^Bearer\s+/i, "");
-  if (!key) throw AuthError("missing_api_key");
-
-  const hashedKey = crypto.createHash("sha256").update(key).digest("hex");
-
-  const [user] = await db
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .where(eq(schema.users.apiKey, hashedKey));
-
-  if (!user) throw AuthError("invalid_credentials");
-}
-
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    await validateApiKey(request);
     const summary = await runFullPipeline();
 
     return NextResponse.json({

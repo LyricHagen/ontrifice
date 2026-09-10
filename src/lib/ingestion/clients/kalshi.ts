@@ -3,27 +3,38 @@ import { AppError } from "@/lib/errors";
 import type { PlatformClient, RawMarket } from "../types";
 
 const BASE_URL = "https://api.elections.kalshi.com/trade-api/v2";
-const MAX_PAGES = 20;
-const PAGE_SIZE = 100;
+const MAX_EVENTS = 50;
+const MAX_MARKETS = 200;
 const MAX_RETRIES = 3;
 
 interface KalshiMarket {
   ticker: string;
   title: string;
-  subtitle?: string;
-  category?: string;
+  yes_sub_title?: string;
+  event_ticker?: string;
   status: string;
-  yes_bid: number;
-  yes_ask: number;
-  volume: number;
-  open_interest?: number;
+  yes_bid_dollars: string;
+  yes_ask_dollars: string;
+  volume_fp: string;
+  open_interest_fp?: string;
+  last_price_dollars?: string;
   result?: string;
-  rules?: string;
-  settlement_sources?: string;
+  rules_primary?: string;
+  rules_secondary?: string;
+  market_type?: string;
 }
 
-interface KalshiResponse {
-  markets: KalshiMarket[];
+interface KalshiEvent {
+  event_ticker: string;
+  title: string;
+  sub_title?: string;
+  category?: string;
+  mutually_exclusive?: boolean;
+  markets?: KalshiMarket[];
+}
+
+interface KalshiEventsResponse {
+  events: KalshiEvent[];
   cursor?: string;
 }
 
@@ -40,6 +51,19 @@ async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Respo
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url);
+
+      if (response.status === 401 || response.status === 403) {
+        logger.warn(
+          "Kalshi: auth required, skipping",
+          "ERR_KALSHI_AUTH_REQUIRED",
+          { statusCode: response.status },
+        );
+        throw kalshiError(
+          "ERR_KALSHI_AUTH_REQUIRED",
+          response.status,
+          "Kalshi API requires authentication for reading markets. Skipping Kalshi ingestion. (ERR_KALSHI_AUTH_REQUIRED)",
+        );
+      }
 
       if (response.status === 429) {
         const backoff = Math.pow(2, attempt + 1);
@@ -73,7 +97,7 @@ async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Respo
         throw kalshiError(
           "ERR_KALSHI_SERVER",
           502,
-          `Kalshi API returned a server error (${response.status}). Their service may be experiencing issues. Will retry in ${backoff} seconds. (ERR_KALSHI_SERVER)`,
+          `Kalshi API returned a server error (${response.status}). Their service may be experiencing issues. (ERR_KALSHI_SERVER)`,
           { statusCode: response.status },
         );
       }
@@ -121,27 +145,29 @@ function parseResolution(market: KalshiMarket): "yes" | "no" | "unresolved" | un
   return "unresolved";
 }
 
-function toRawMarket(market: KalshiMarket): RawMarket | null {
+function toRawMarket(market: KalshiMarket, eventCategory?: string): RawMarket | null {
   try {
-    const yesBid = market.yes_bid / 100;
-    const yesAsk = market.yes_ask / 100;
+    const yesBid = parseFloat(market.yes_bid_dollars);
+    const yesAsk = parseFloat(market.yes_ask_dollars);
     const probability = (yesBid + yesAsk) / 2;
+    const volume = parseFloat(market.volume_fp);
 
     return {
       platform: "kalshi",
       platformMarketId: market.ticker,
       title: market.title,
-      description: market.subtitle,
-      resolutionRules: market.rules ?? market.settlement_sources ?? undefined,
-      category: market.category,
+      description: market.yes_sub_title,
+      resolutionRules: market.rules_primary || market.rules_secondary || undefined,
+      category: eventCategory,
       probability: probability >= 0 && probability <= 1 ? probability : undefined,
-      volumeUsd: market.volume ? market.volume / 100 : undefined,
+      volumeUsd: !isNaN(volume) ? volume : undefined,
       status: parseStatus(market),
       resolution: parseResolution(market),
       metadata: {
-        openInterest: market.open_interest,
-        yesBid: market.yes_bid,
-        yesAsk: market.yes_ask,
+        openInterest: market.open_interest_fp,
+        yesBidDollars: market.yes_bid_dollars,
+        yesAskDollars: market.yes_ask_dollars,
+        eventTicker: market.event_ticker,
       },
     };
   } catch (error) {
@@ -161,21 +187,22 @@ export function createKalshiClient(): PlatformClient {
       const allMarkets: RawMarket[] = [];
       let cursor: string | undefined;
 
-      for (let page = 0; page < MAX_PAGES; page++) {
+      for (let page = 0; page < MAX_EVENTS && allMarkets.length < MAX_MARKETS; page++) {
         const params = new URLSearchParams({
-          limit: String(PAGE_SIZE),
+          limit: String(Math.min(MAX_EVENTS, 20)),
           status: "open",
+          with_nested_markets: "true",
         });
         if (cursor) params.set("cursor", cursor);
 
-        const url = `${BASE_URL}/markets?${params}`;
-        logger.debug(`Fetching Kalshi page ${page + 1}`, { url });
+        const url = `${BASE_URL}/events?${params}`;
+        logger.debug(`Fetching Kalshi events page ${page + 1}`, { url });
 
         const response = await fetchWithRetry(url);
-        let data: KalshiResponse;
+        let data: KalshiEventsResponse;
 
         try {
-          data = (await response.json()) as KalshiResponse;
+          data = (await response.json()) as KalshiEventsResponse;
         } catch (error) {
           throw kalshiError(
             "ERR_KALSHI_PARSE",
@@ -185,13 +212,18 @@ export function createKalshiClient(): PlatformClient {
           );
         }
 
-        const markets = data.markets ?? [];
-        for (const m of markets) {
-          const raw = toRawMarket(m);
-          if (raw) allMarkets.push(raw);
+        const events = data.events ?? [];
+        for (const event of events) {
+          const markets = event.markets ?? [];
+          for (const m of markets) {
+            if (allMarkets.length >= MAX_MARKETS) break;
+            const raw = toRawMarket(m, event.category);
+            if (raw && raw.status === "active") allMarkets.push(raw);
+          }
+          if (allMarkets.length >= MAX_MARKETS) break;
         }
 
-        if (!data.cursor || markets.length < PAGE_SIZE) break;
+        if (!data.cursor || events.length === 0) break;
         cursor = data.cursor;
       }
 

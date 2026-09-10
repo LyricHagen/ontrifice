@@ -12,7 +12,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed/index.ts",
-    "eval": "tsx src/lib/eval/run.ts"
+    "eval": "tsx src/lib/eval/run.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "compute": "tsx scripts/compute.ts",
+    "ingest-all": "tsx scripts/run-all.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

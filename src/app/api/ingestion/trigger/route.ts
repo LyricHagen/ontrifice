@@ -1,36 +1,169 @@
-import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import crypto from "crypto";
+import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { handleApiError, AuthError } from "@/lib/errors";
-import { runIngestion } from "@/lib/ingestion/coordinator";
+import { handleApiError } from "@/lib/errors";
+import { normalizeMarket } from "@/lib/ingestion/normalizer";
+import { createPolymarketClient } from "@/lib/ingestion/clients/polymarket";
+import { createKalshiClient } from "@/lib/ingestion/clients/kalshi";
+import type { Platform, NormalizedMarket } from "@/lib/ingestion/types";
 
-async function validateApiKey(authHeader: string | null): Promise<boolean> {
-  if (!authHeader) return false;
-  const key = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
-  if (!key) return false;
+const MAX_DURATION_MS = 8000;
+const BATCH_SIZE = 50;
 
-  const hashedKey = crypto.createHash("sha256").update(key).digest("hex");
-
-  const result = await db
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .where(eq(schema.users.apiKey, hashedKey))
-    .limit(1);
-
-  return result.length > 0;
+interface CronState {
+  platform: Platform;
+  offset: number;
 }
 
-export async function POST(request: NextRequest) {
+async function getState(): Promise<CronState> {
+  const row = await db
+    .select({ value: schema.ingestionState.value })
+    .from(schema.ingestionState)
+    .where(eq(schema.ingestionState.key, "ingestion_cursor"))
+    .limit(1);
+
+  if (row.length > 0 && row[0].value) {
+    try {
+      return JSON.parse(row[0].value) as CronState;
+    } catch {
+      // fall through
+    }
+  }
+
+  return { platform: "polymarket", offset: 0 };
+}
+
+async function saveState(state: CronState): Promise<void> {
+  const value = JSON.stringify(state);
+  const existing = await db
+    .select({ key: schema.ingestionState.key })
+    .from(schema.ingestionState)
+    .where(eq(schema.ingestionState.key, "ingestion_cursor"))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(schema.ingestionState)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(schema.ingestionState.key, "ingestion_cursor"));
+  } else {
+    await db.insert(schema.ingestionState).values({
+      key: "ingestion_cursor",
+      value,
+    });
+  }
+}
+
+async function upsertMarket(market: NormalizedMarket): Promise<{ created: boolean }> {
+  const existing = await db
+    .select({ id: schema.markets.id })
+    .from(schema.markets)
+    .where(
+      and(
+        eq(schema.markets.platform, market.platform),
+        eq(schema.markets.platformMarketId, market.platformMarketId),
+      ),
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(schema.markets)
+      .set({
+        title: market.title,
+        description: market.description,
+        currentProbability: market.currentProbability,
+        volumeUsd: market.volumeUsd,
+        status: market.status,
+        metadata: market.metadata,
+        lastFetchedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.markets.id, existing[0].id));
+    return { created: false };
+  }
+
+  await db.insert(schema.markets).values(market);
+  return { created: true };
+}
+
+export async function GET() {
+  const startTime = Date.now();
+
   try {
-    const authHeader = request.headers.get("authorization");
-    const valid = await validateApiKey(authHeader);
-    if (!valid) {
-      throw AuthError("missing_api_key");
+    const state = await getState();
+    let marketsProcessed = 0;
+    let marketsCreated = 0;
+    let marketsUpdated = 0;
+    const errors: string[] = [];
+
+    if (state.platform === "polymarket") {
+      try {
+        const client = createPolymarketClient();
+        const rawMarkets = await client.fetchMarkets();
+        const batch = rawMarkets.slice(state.offset, state.offset + BATCH_SIZE);
+
+        for (const raw of batch) {
+          if (Date.now() - startTime > MAX_DURATION_MS) break;
+          const normalized = normalizeMarket(raw);
+          if (!normalized) continue;
+          const result = await upsertMarket(normalized);
+          marketsProcessed++;
+          if (result.created) marketsCreated++;
+          else marketsUpdated++;
+        }
+
+        if (state.offset + BATCH_SIZE >= rawMarkets.length || state.offset + BATCH_SIZE >= 200) {
+          state.platform = "kalshi";
+          state.offset = 0;
+        } else {
+          state.offset += BATCH_SIZE;
+        }
+      } catch (error) {
+        errors.push(`polymarket: ${error instanceof Error ? error.message : String(error)}`);
+        state.platform = "kalshi";
+        state.offset = 0;
+      }
+    } else {
+      try {
+        const client = createKalshiClient();
+        const rawMarkets = await client.fetchMarkets();
+        const batch = rawMarkets.slice(state.offset, state.offset + BATCH_SIZE);
+
+        for (const raw of batch) {
+          if (Date.now() - startTime > MAX_DURATION_MS) break;
+          const normalized = normalizeMarket(raw);
+          if (!normalized) continue;
+          const result = await upsertMarket(normalized);
+          marketsProcessed++;
+          if (result.created) marketsCreated++;
+          else marketsUpdated++;
+        }
+
+        if (state.offset + BATCH_SIZE >= rawMarkets.length || state.offset + BATCH_SIZE >= 200) {
+          state.platform = "polymarket";
+          state.offset = 0;
+        } else {
+          state.offset += BATCH_SIZE;
+        }
+      } catch (error) {
+        errors.push(`kalshi: ${error instanceof Error ? error.message : String(error)}`);
+        state.platform = "polymarket";
+        state.offset = 0;
+      }
     }
 
-    const summary = await runIngestion();
-    return NextResponse.json(summary);
+    await saveState(state);
+
+    return NextResponse.json({
+      marketsProcessed,
+      marketsCreated,
+      marketsUpdated,
+      errors,
+      nextPlatform: state.platform,
+      nextOffset: state.offset,
+      durationMs: Date.now() - startTime,
+    });
   } catch (error) {
     return handleApiError(error);
   }

@@ -3,8 +3,8 @@ import { AppError } from "@/lib/errors";
 import type { PlatformClient, RawMarket } from "../types";
 
 const BASE_URL = "https://gamma-api.polymarket.com";
-const MAX_PAGES = 20;
 const PAGE_SIZE = 100;
+const MAX_MARKETS = 200;
 const MAX_RETRIES = 3;
 
 interface PolymarketMarket {
@@ -19,11 +19,8 @@ interface PolymarketMarket {
   outcomes: string;
   acceptingOrders: boolean;
   clobTokenIds?: string;
-}
-
-interface PolymarketResponse {
-  data: PolymarketMarket[];
-  next_cursor?: string;
+  negRisk?: boolean;
+  conditionId?: string;
 }
 
 function polymarketError(
@@ -155,28 +152,23 @@ export function createPolymarketClient(): PlatformClient {
     platform: "polymarket",
     async fetchMarkets(): Promise<RawMarket[]> {
       const allMarkets: RawMarket[] = [];
-      let cursor: string | undefined;
 
-      for (let page = 0; page < MAX_PAGES; page++) {
+      for (let offset = 0; offset < MAX_MARKETS; offset += PAGE_SIZE) {
         const params = new URLSearchParams({
           limit: String(PAGE_SIZE),
+          offset: String(offset),
           active: "true",
         });
-        if (cursor) params.set("next_cursor", cursor);
 
         const url = `${BASE_URL}/markets?${params}`;
-        logger.debug(`Fetching Polymarket page ${page + 1}`, { url });
+        logger.debug(`Fetching Polymarket offset ${offset}`, { url });
 
         const response = await fetchWithRetry(url);
-        let data: PolymarketResponse;
+        let markets: PolymarketMarket[];
 
         try {
           const raw = await response.json();
-          if (Array.isArray(raw)) {
-            data = { data: raw };
-          } else {
-            data = raw as PolymarketResponse;
-          }
+          markets = Array.isArray(raw) ? raw : (raw as { data?: PolymarketMarket[] }).data ?? [];
         } catch (error) {
           throw polymarketError(
             "ERR_POLYMARKET_PARSE",
@@ -186,14 +178,12 @@ export function createPolymarketClient(): PlatformClient {
           );
         }
 
-        const markets = data.data ?? [];
         for (const m of markets) {
           const raw = toRawMarket(m);
           if (raw) allMarkets.push(raw);
         }
 
-        if (!data.next_cursor || markets.length < PAGE_SIZE) break;
-        cursor = data.next_cursor;
+        if (markets.length < PAGE_SIZE || allMarkets.length >= MAX_MARKETS) break;
       }
 
       logger.info(`Polymarket: fetched ${allMarkets.length} markets`);
