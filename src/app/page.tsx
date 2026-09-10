@@ -36,88 +36,32 @@ export default async function Home({
 
       <header className="mb-16">
         <h1 className="font-mono text-4xl font-bold mb-4">Ontrifice</h1>
-        <p className="text-lg mb-2">
-          A live coherence engine for prediction markets.
-        </p>
-        <p className="text-sm text-text-secondary">
-          Surfaces cross-event dependencies, logical inconsistencies, and
-          model-implied probabilities across Polymarket, Kalshi, and
-          Limitless.
-        </p>
       </header>
 
       <section className="mb-16">
-        <h2 className="font-mono text-sm text-muted uppercase tracking-wider mb-6">
-          The problem
-        </h2>
         <div className="flex flex-col gap-4 text-text-secondary leading-relaxed">
           <p>
             Prediction markets price events independently. But events are
-            massively correlated. &ldquo;Fed cuts rates in September,&rdquo;
-            &ldquo;S&P above 5500 by EOY,&rdquo; and &ldquo;recession by
+            massively correlated. &ldquo;Fed cuts rates in September&rdquo; and
+            &ldquo;S&P above 5500 by EOY&rdquo; and &ldquo;recession by
             Q1&rdquo; are not independent propositions&mdash;yet every platform
             treats them as if they are.
           </p>
           <p>
             There is roughly $25B/month flowing through prediction markets with
-            no coherence layer. Logical contradictions persist for hours or days.
-            Implied conditionals go unpriced. Cascade effects&mdash;where one
-            resolved event should reprice a dozen others&mdash;are invisible
-            until they happen.
+            no coherence layer. Logical contradictions persist for hours or
+            days; implied conditionals go unpriced. Cascade
+            effects&mdash;where one resolved event should reprice a dozen
+            others&mdash;are invisible until they happen. The information is
+            there, it&apos;s just scattered across platforms, contracts, and
+            order books with no system connecting the different pieces.
           </p>
           <p>
-            The information is there. It is just scattered across platforms,
-            contracts, and order books, with no system connecting the pieces.
+            Some use cases: pricing conditionals no single market offers,
+            catching cascade lag before downstream contracts reprice, flagging
+            when exclusive outcomes sum past 100%.
           </p>
         </div>
-      </section>
-
-      <section className="mb-16">
-        <h2 className="font-mono text-sm text-muted uppercase tracking-wider mb-6">
-          What it does
-        </h2>
-        <dl className="flex flex-col">
-          <div className="flex border-t border-border py-5 gap-6">
-            <dt className="w-40 shrink-0 font-mono text-sm font-medium border-r border-border pr-6">
-              Dependency Graph
-            </dt>
-            <dd className="text-sm text-text-secondary leading-relaxed">
-              Continuously builds and updates a graph of cross-event
-              probabilistic dependencies using semantic analysis, temporal
-              co-movement (Granger-causal), and structural constraints.
-            </dd>
-          </div>
-          <div className="flex border-t border-border py-5 gap-6">
-            <dt className="w-40 shrink-0 font-mono text-sm font-medium border-r border-border pr-6">
-              Incoherences
-            </dt>
-            <dd className="text-sm text-text-secondary leading-relaxed">
-              Detects when a cluster of related markets implies a joint
-              probability that violates basic logic. Shows the cheapest
-              portfolio that exploits it.
-            </dd>
-          </div>
-          <div className="flex border-t border-border py-5 gap-6">
-            <dt className="w-40 shrink-0 font-mono text-sm font-medium border-r border-border pr-6">
-              Model-Implied Probabilities
-            </dt>
-            <dd className="text-sm text-text-secondary leading-relaxed">
-              Derives probability estimates that no single market prices.
-              P(recession&nbsp;|&nbsp;no&nbsp;Fed&nbsp;cut) computed from the
-              dependency graph using Bernoulli correlation models.
-            </dd>
-          </div>
-          <div className="flex border-t border-b border-border py-5 gap-6">
-            <dt className="w-40 shrink-0 font-mono text-sm font-medium border-r border-border pr-6">
-              Cascade Alerts
-            </dt>
-            <dd className="text-sm text-text-secondary leading-relaxed">
-              When market X moves but logically connected markets Y and Z
-              haven&apos;t followed, surfaces the expected lag window and
-              magnitude of the anticipated repricing.
-            </dd>
-          </div>
-        </dl>
       </section>
 
       <section className="mb-16">
