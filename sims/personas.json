@@ -1,0 +1,272 @@
+[
+  {
+    "name": "Danielle Johnson",
+    "email": "danielle.johnson.15@ontrifice.test",
+    "password": "Skyblue42!",
+    "archetype": "developer",
+    "patience": 0.12,
+    "technical_level": 0.35,
+    "age": 33
+  },
+  {
+    "name": "Joshua Walker",
+    "email": "joshua.walker.95@ontrifice.test",
+    "password": "marcus2024",
+    "archetype": "trader",
+    "patience": 0.19,
+    "technical_level": 0.77,
+    "age": 53
+  },
+  {
+    "name": "Jill Rhodes",
+    "email": "jill.rhodes.76@ontrifice.test",
+    "password": "Tr@ding2026",
+    "archetype": "trader",
+    "patience": 0.48,
+    "technical_level": 0.13,
+    "age": 32
+  },
+  {
+    "name": "Patricia Miller",
+    "email": "patricia.miller.65@ontrifice.test",
+    "password": "quantlife88",
+    "archetype": "researcher",
+    "patience": 0.64,
+    "technical_level": 0.61,
+    "age": 53
+  },
+  {
+    "name": "Robert Johnson",
+    "email": "robert.johnson.29@ontrifice.test",
+    "password": "M0neyball!",
+    "archetype": "curious_browser",
+    "patience": 0.5,
+    "technical_level": 0.35,
+    "age": 19
+  },
+  {
+    "name": "Jeffery Wagner",
+    "email": "jeffery.wagner.21@ontrifice.test",
+    "password": "datadata1",
+    "archetype": "lost",
+    "patience": 0.73,
+    "technical_level": 0.41,
+    "age": 28
+  },
+  {
+    "name": "Anthony Gonzalez",
+    "email": "anthony.gonzalez.98@ontrifice.test",
+    "password": "pr0bability",
+    "archetype": "researcher",
+    "patience": 0.4,
+    "technical_level": 0.18,
+    "age": 25
+  },
+  {
+    "name": "Debra Gardner",
+    "email": "debra.gardner.45@ontrifice.test",
+    "password": "Bayes!an99",
+    "archetype": "curious_browser",
+    "patience": 0.64,
+    "technical_level": 0.83,
+    "age": 48
+  },
+  {
+    "name": "Jeffrey Lawrence",
+    "email": "jeffrey.lawrence.16@ontrifice.test",
+    "password": "f0recast3r",
+    "archetype": "curious_browser",
+    "patience": 0.98,
+    "technical_level": 0.44,
+    "age": 54
+  },
+  {
+    "name": "Lisa Smith",
+    "email": "lisa.smith.81@ontrifice.test",
+    "password": "alpha_seek",
+    "archetype": "researcher",
+    "patience": 0.66,
+    "technical_level": 0.88,
+    "age": 55
+  },
+  {
+    "name": "Linda Wolfe",
+    "email": "linda.wolfe.91@ontrifice.test",
+    "password": "mktMaker21",
+    "archetype": "trader",
+    "patience": 0.16,
+    "technical_level": 0.7,
+    "age": 37
+  },
+  {
+    "name": "Matthew Moore",
+    "email": "matthew.moore.30@ontrifice.test",
+    "password": "EdgeFind3r",
+    "archetype": "trader",
+    "patience": 0.88,
+    "technical_level": 0.44,
+    "age": 48
+  },
+  {
+    "name": "Susan Rogers",
+    "email": "susan.rogers.47@ontrifice.test",
+    "password": "p0lywhale",
+    "archetype": "developer",
+    "patience": 0.25,
+    "technical_level": 0.42,
+    "age": 36
+  },
+  {
+    "name": "Christopher Davis",
+    "email": "christopher.davis.88@ontrifice.test",
+    "password": "N0iseTrad3",
+    "archetype": "skeptic",
+    "patience": 0.68,
+    "technical_level": 0.65,
+    "age": 29
+  },
+  {
+    "name": "Melanie Munoz",
+    "email": "melanie.munoz.94@ontrifice.test",
+    "password": "calibr8ed!",
+    "archetype": "curious_browser",
+    "patience": 0.32,
+    "technical_level": 0.52,
+    "age": 36
+  },
+  {
+    "name": "Lindsay Blair",
+    "email": "lindsay.blair.89@ontrifice.test",
+    "password": "sharpRatio1",
+    "archetype": "developer",
+    "patience": 0.6,
+    "technical_level": 0.72,
+    "age": 22
+  },
+  {
+    "name": "Amanda Dudley",
+    "email": "amanda.dudley.5@ontrifice.test",
+    "password": "blackSwan9",
+    "archetype": "researcher",
+    "patience": 0.82,
+    "technical_level": 0.46,
+    "age": 23
+  },
+  {
+    "name": "Nicholas Arnold",
+    "email": "nicholas.arnold.73@ontrifice.test",
+    "password": "r1skParity",
+    "archetype": "researcher",
+    "patience": 0.89,
+    "technical_level": 0.38,
+    "age": 50
+  },
+  {
+    "name": "Maria Montgomery",
+    "email": "maria.montgomery.83@ontrifice.test",
+    "password": "volSurf42!",
+    "archetype": "curious_browser",
+    "patience": 0.51,
+    "technical_level": 0.34,
+    "age": 34
+  },
+  {
+    "name": "Michelle Ray",
+    "email": "michelle.ray.72@ontrifice.test",
+    "password": "deepValue7",
+    "archetype": "lost",
+    "patience": 0.59,
+    "technical_level": 0.77,
+    "age": 46
+  },
+  {
+    "name": "Janet Williams",
+    "email": "janet.williams.52@ontrifice.test",
+    "password": "signal2noise",
+    "archetype": "developer",
+    "patience": 0.43,
+    "technical_level": 1.0,
+    "age": 27
+  },
+  {
+    "name": "Jeremy Roberts",
+    "email": "jeremy.roberts.64@ontrifice.test",
+    "password": "kellyCrit!",
+    "archetype": "curious_browser",
+    "patience": 0.18,
+    "technical_level": 0.14,
+    "age": 26
+  },
+  {
+    "name": "Christopher Hall",
+    "email": "christopher.hall.81@ontrifice.test",
+    "password": "meanRevert3",
+    "archetype": "trader",
+    "patience": 0.24,
+    "technical_level": 0.71,
+    "age": 57
+  },
+  {
+    "name": "Craig Ramirez",
+    "email": "craig.ramirez.50@ontrifice.test",
+    "password": "gammaFlip2",
+    "archetype": "trader",
+    "patience": 0.44,
+    "technical_level": 1.0,
+    "age": 52
+  },
+  {
+    "name": "Cynthia Diaz",
+    "email": "cynthia.diaz.71@ontrifice.test",
+    "password": "thetaGang1",
+    "archetype": "researcher",
+    "patience": 0.87,
+    "technical_level": 0.11,
+    "age": 26
+  },
+  {
+    "name": "Mitchell Clark",
+    "email": "mitchell.clark.69@ontrifice.test",
+    "password": "deltaH3dge",
+    "archetype": "skeptic",
+    "patience": 0.78,
+    "technical_level": 0.79,
+    "age": 40
+  },
+  {
+    "name": "Joseph Zuniga",
+    "email": "joseph.zuniga.38@ontrifice.test",
+    "password": "arbFindr!",
+    "archetype": "trader",
+    "patience": 0.49,
+    "technical_level": 0.51,
+    "age": 35
+  },
+  {
+    "name": "Deborah Lynch",
+    "email": "deborah.lynch.98@ontrifice.test",
+    "password": "convexity9",
+    "archetype": "curious_browser",
+    "patience": 0.26,
+    "technical_level": 0.92,
+    "age": 38
+  },
+  {
+    "name": "George Daniel",
+    "email": "george.daniel.65@ontrifice.test",
+    "password": "tailR1sk!",
+    "archetype": "developer",
+    "patience": 0.65,
+    "technical_level": 0.24,
+    "age": 29
+  },
+  {
+    "name": "Frank Gray",
+    "email": "frank.gray.68@ontrifice.test",
+    "password": "momentumX3",
+    "archetype": "curious_browser",
+    "patience": 0.93,
+    "technical_level": 0.64,
+    "age": 50
+  }
+]
