@@ -41,25 +41,24 @@ export default async function Home({
       <section className="mb-16">
         <div className="flex flex-col gap-4 text-text-secondary leading-relaxed">
           <p>
-            Prediction markets price events independently. But events are
-            massively correlated. &ldquo;Fed cuts rates in September&rdquo; and
-            &ldquo;S&P above 5500 by EOY&rdquo; and &ldquo;recession by
-            Q1&rdquo; are not independent propositions&mdash;yet every platform
-            treats them as if they are.
+            Prediction markets price events independently but events aren&apos;t
+            independent. &ldquo;Model hits 90% on FrontierMath&rdquo; and
+            &ldquo;lab claims AGI&rdquo; and &ldquo;AI regulation passes&rdquo;
+            are obviously correlated yet every platform prices them in isolation.
           </p>
           <p>
-            There is roughly $25B/month flowing through prediction markets with
-            no coherence layer. Logical contradictions persist for hours or
-            days; implied conditionals go unpriced. Cascade
-            effects&mdash;where one resolved event should reprice a dozen
-            others&mdash;are invisible until they happen. The information is
-            there, it&apos;s just scattered across platforms, contracts, and
-            order books with no system connecting the different pieces.
+            There&apos;s ~$25B/month moving through these markets with no strong
+            coherence layer. Contradictions sit for hours and sometimes days,
+            implied conditionals go completely unpriced. Cascade effects are
+            basically invisible; one event resolves, a dozen downstream contracts
+            should reprice, nobody notices until it happens. The information
+            exists, it&apos;s just scattered across platforms and order books and
+            it&apos;s not wired together.
           </p>
           <p>
-            Some use cases: pricing conditionals no single market offers,
-            catching cascade lag before downstream contracts reprice, flagging
-            when exclusive outcomes sum past 100%.
+            Use cases: pricing conditionals no single market offers, catching
+            cascade lag before downstream contracts reprice, flagging when
+            exclusive outcomes sum past 100%.
           </p>
         </div>
       </section>
