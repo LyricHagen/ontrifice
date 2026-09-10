@@ -39,7 +39,7 @@ export default async function Home({
         <h1 className="font-mono text-4xl font-bold mb-6">Ontrifice</h1>
         <p className="text-lg text-foreground leading-relaxed">
           Your prediction market portfolio posts collateral for each position
-          independently. Your actual max loss is lower.
+          independently; your actual max loss is lower.
         </p>
       </header>
 
@@ -48,81 +48,34 @@ export default async function Home({
         <LiveStats />
       </section>
 
-      {/* Problem */}
+      {/* Problem + How it works + Use cases */}
       <section className="mb-16">
-        <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">
-          The problem
-        </h2>
         <div className="flex flex-col gap-4 text-text-secondary leading-relaxed">
           <p>
-            Prediction markets are fully collateralized. Every position locks up
-            its full risk amount. Neg risk solves this within single
-            winner-take-all events&mdash;if you hold NO on every candidate in
+            Prediction markets are fully collateralized and every position locks
+            up its full risk amount. Neg risk solves this within single
+            winner-take-all events: if you hold NO on every candidate in
             &ldquo;Who wins the election?&rdquo;, you only post collateral for
             your max loss, not the sum of all legs.
           </p>
           <p>
-            But across disparate markets, across platforms, across different
-            contract structures, your capital is fragmented. You post collateral
-            as if your positions are independent. They aren&apos;t.
+            But across disparate markets / platforms / different contract
+            structures, your capital is fragmented; you post collateral as if
+            your positions are independent but they aren&apos;t.
           </p>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="mb-16">
-        <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">
-          How it works
-        </h2>
-        <div className="flex flex-col gap-0 border border-border" style={{ borderRadius: "2px" }}>
-          <div className="px-4 py-4 border-b border-border">
-            <div className="font-mono text-xs text-text-secondary mb-1">01</div>
-            <p className="text-sm text-foreground">
-              Ontrifice ingests markets from Polymarket and Kalshi and detects
-              structural relationships&mdash;mutual exclusion, implication,
-              exhaustive sets.
-            </p>
-          </div>
-          <div className="px-4 py-4 border-b border-border">
-            <div className="font-mono text-xs text-text-secondary mb-1">02</div>
-            <p className="text-sm text-foreground">
-              You input a portfolio of positions across any markets on any
-              platform.
-            </p>
-          </div>
-          <div className="px-4 py-4">
-            <div className="font-mono text-xs text-text-secondary mb-1">03</div>
-            <p className="text-sm text-foreground">
-              The solver computes your true max loss given the proven
-              constraints&mdash;and shows exactly which relationships are saving
-              you capital.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Use cases */}
-      <section className="mb-16">
-        <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">
-          Use cases
-        </h2>
-        <div className="flex flex-col gap-2 text-sm text-text-secondary">
-          <div className="flex gap-3">
-            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
-            <span>Computing true max loss on multi-leg positions across correlated markets</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
-            <span>Identifying which portfolio positions are implicitly hedged by structural relationships</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
-            <span>Proving to a counterparty or exchange that your collateral requirement should be lower</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-muted font-mono flex-shrink-0">&mdash;</span>
-            <span>Finding collateral-efficient entry points&mdash;markets where adding a position actually reduces your total required collateral</span>
-          </div>
+          <p>
+            How it works: Ontrifice ingests markets from Polymarket and Kalshi
+            and detects structural relationships (mutual exclusion, implication,
+            exhaustive sets). Then, you input a portfolio of positions across any
+            markets on any platform. Then, the solver computes your true max loss
+            given the proven constraints and shows exactly which relationships
+            are saving you capital.
+          </p>
+          <p>
+            Use cases: margining a trifecta book as one position, finding hedges
+            you didn&apos;t know you had, handing your broker an auditable
+            max-loss proof, adding a leg that shrinks your worst case.
+          </p>
         </div>
       </section>
 
