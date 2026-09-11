@@ -91,7 +91,7 @@ function Endpoint({
 }) {
   return (
     <section className="mt-12 pt-8 border-t border-border" id={id}>
-      <h2 className="text-xl font-bold font-mono mb-2">
+      <h2 className="text-xl font-bold font-mono mb-2 break-all">
         <MethodBadge method={method} />
         {path}
       </h2>
@@ -108,7 +108,7 @@ function Endpoint({
 
 export function DocsContent() {
   return (
-    <div className="flex-1 min-w-0 px-6 py-8 lg:px-12">
+    <div className="flex-1 min-w-0 py-8 lg:px-12">
       <div className="max-w-[720px]">
         <section id="overview">
           <h1 className="text-3xl font-bold font-mono mb-6">API Documentation</h1>

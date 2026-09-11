@@ -612,7 +612,7 @@ export function Explorer({
 
             {mode === "browse" && browseHiddenCount > 0 && (
               <span
-                className="text-[10px] font-mono text-muted ml-auto"
+                className="text-[10px] font-mono text-muted ml-auto hidden md:inline"
                 style={{ pointerEvents: "auto" }}
               >
                 {browseHiddenCount} markets with only semantic relationships

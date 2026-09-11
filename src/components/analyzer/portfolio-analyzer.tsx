@@ -365,7 +365,7 @@ export function PortfolioAnalyzer() {
                     </button>
                   </div>
                   <div className="text-[10px] text-muted font-mono mb-2">{pos.platform}</div>
-                  <div className="flex gap-2 items-center">
+                  <div className="flex gap-2 items-center flex-wrap">
                     <select
                       value={pos.side}
                       onChange={(e) =>

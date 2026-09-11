@@ -214,7 +214,7 @@ export function CascadesFeed() {
                     </span>
                   </div>
 
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     {alert.triggerMarket ? (
                       <Link
                         href={`/explore?focus=${alert.triggerMarket.id}`}

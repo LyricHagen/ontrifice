@@ -275,7 +275,7 @@ function QuerySection() {
     <div>
       <div className="flex items-end gap-2 flex-wrap">
         <span className="text-sm font-mono text-text-secondary pb-1">P(</span>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <MarketSearchInput
             label="Target"
             selected={target}
@@ -287,7 +287,7 @@ function QuerySection() {
           />
         </div>
         <span className="text-sm font-mono text-text-secondary pb-1">|</span>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <MarketSearchInput
             label="Condition"
             selected={condition}
@@ -328,7 +328,7 @@ function QuerySection() {
 
       {result && !computing && (
         <div className="mt-6 border border-border p-4 bg-surface">
-          <p className="font-mono text-2xl text-foreground">
+          <p className="font-mono text-lg sm:text-2xl text-foreground" style={{ wordBreak: "break-word" }}>
             P({result.targetMarket.title} | {result.conditionMarket.title}) ={" "}
             {(result.probability * 100).toFixed(1)}%
           </p>
@@ -465,7 +465,7 @@ function BrowseSection() {
         <div key={c.id} className="py-3 border-b border-border">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-mono text-foreground">
+              <p className="text-sm font-mono text-foreground" style={{ wordBreak: "break-word" }}>
                 P(
                 <Link
                   href={`/explore?focus=${c.targetMarketId}`}

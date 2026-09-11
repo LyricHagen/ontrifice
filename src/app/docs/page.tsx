@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function DocsPage() {
   return (
-    <div className="max-w-7xl mx-auto flex">
+    <div className="max-w-7xl mx-auto px-4 flex">
       <DocsSidebar />
       <DocsContent />
     </div>

@@ -175,7 +175,7 @@ export function SettingsContent({
               </button>
             </div>
           ) : apiKeyState.exists ? (
-            <div className="px-4 py-3 flex items-center justify-between">
+            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="text-sm">
                 API key active
                 {apiKeyState.createdAt && (

@@ -335,11 +335,11 @@ export function IncoherencesFeed() {
                   {inc.involvedMarkets.map((market) => (
                     <div
                       key={market.id}
-                      className="text-sm py-0.5 flex items-baseline gap-2"
+                      className="text-sm py-0.5 flex items-baseline gap-2 flex-wrap"
                     >
                       <Link
                         href={`/explore?focus=${market.id}`}
-                        className="text-accent no-underline hover:underline truncate"
+                        className="text-accent no-underline hover:underline truncate max-w-full"
                       >
                         {market.title}
                       </Link>

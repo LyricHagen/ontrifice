@@ -50,7 +50,7 @@ export function LiveStats() {
   }, []);
 
   return (
-    <div className="border border-border flex divide-x divide-border">
+    <div className="border border-border flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-border">
       <StatCell
         label="Markets tracked"
         value={stats ? stats.marketsCount.toLocaleString() : null}
