@@ -70,9 +70,24 @@ export async function login(
 export async function signup(
   formData: FormData,
 ): Promise<{ error: string } | undefined> {
+  const username = (formData.get("username") as string)?.trim();
   const email = (formData.get("email") as string)?.toLowerCase().trim();
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!username || username.length < 3 || username.length > 20) {
+    return {
+      error:
+        "Username must be 3-20 characters. Choose a shorter or longer name. (ERR_VALIDATION_USERNAME_LENGTH)",
+    };
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    return {
+      error:
+        "Username can only contain letters, numbers, and underscores. Remove any special characters. (ERR_VALIDATION_USERNAME_FORMAT)",
+    };
+  }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return {
@@ -94,22 +109,35 @@ export async function signup(
     };
   }
 
-  const [existing] = await db
+  const [existingEmail] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
 
-  if (existing) {
+  if (existingEmail) {
     return {
       error:
         "Could not create account. If you already have an account, try logging in instead. (ERR_AUTH_SIGNUP_FAILED)",
     };
   }
 
+  const [existingUsername] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.username, username.toLowerCase()))
+    .limit(1);
+
+  if (existingUsername) {
+    return {
+      error:
+        "That username is already taken. Try a different one. (ERR_AUTH_USERNAME_TAKEN)",
+    };
+  }
+
   const passwordHash = await hash(password, 12);
   try {
-    await db.insert(users).values({ email, passwordHash });
+    await db.insert(users).values({ username: username.toLowerCase(), email, passwordHash });
   } catch {
     return {
       error:

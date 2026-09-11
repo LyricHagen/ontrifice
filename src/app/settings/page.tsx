@@ -25,6 +25,7 @@ export default async function SettingsPage() {
 
   const [user] = await db
     .select({
+      username: users.username,
       email: users.email,
       apiKey: users.apiKey,
       apiKeyCreatedAt: users.apiKeyCreatedAt,
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsContent
+      username={user.username}
       email={user.email}
       hasApiKey={user.apiKey !== null}
       apiKeyCreatedAt={user.apiKeyCreatedAt?.toISOString() ?? null}

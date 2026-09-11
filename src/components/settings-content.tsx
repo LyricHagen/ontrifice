@@ -8,10 +8,12 @@ import {
 } from "@/lib/auth-actions";
 
 export function SettingsContent({
+  username,
   email,
   hasApiKey,
   apiKeyCreatedAt,
 }: {
+  username: string;
   email: string;
   hasApiKey: boolean;
   apiKeyCreatedAt: string | null;
@@ -117,6 +119,14 @@ export function SettingsContent({
           className="border border-border"
           style={{ borderRadius: "2px" }}
         >
+          <div className="px-4 py-3 flex items-center justify-between border-b border-border">
+            <div>
+              <div className="text-xs text-text-secondary uppercase tracking-wider">
+                Username
+              </div>
+              <div className="text-sm font-mono mt-0.5">{username}</div>
+            </div>
+          </div>
           <div className="px-4 py-3 flex items-center justify-between border-b border-border">
             <div>
               <div className="text-xs text-text-secondary uppercase tracking-wider">

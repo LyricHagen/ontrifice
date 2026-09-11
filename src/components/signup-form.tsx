@@ -13,9 +13,24 @@ export function SignupForm() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    const username = formData.get("username") as string;
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (!username || username.length < 3 || username.length > 20) {
+      setError(
+        "Username must be 3-20 characters. Choose a shorter or longer name. (ERR_VALIDATION_USERNAME_LENGTH)",
+      );
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError(
+        "Username can only contain letters, numbers, and underscores. Remove any special characters. (ERR_VALIDATION_USERNAME_FORMAT)",
+      );
+      return;
+    }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError(
@@ -67,6 +82,29 @@ export function SignupForm() {
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label
+            htmlFor="username"
+            className="block text-sm text-text-secondary mb-1.5"
+          >
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            required
+            autoComplete="username"
+            minLength={3}
+            maxLength={20}
+            className="w-full px-3 py-2 bg-surface border border-border text-foreground text-sm"
+            style={{ borderRadius: "2px" }}
+          />
+          <div className="text-xs text-text-secondary mt-1">
+            3-20 characters. Letters, numbers, underscores.
+          </div>
+        </div>
+
         <div>
           <label
             htmlFor="email"
