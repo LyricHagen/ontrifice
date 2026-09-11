@@ -120,6 +120,7 @@ export async function GET(request: NextRequest) {
           modelVersion: schema.edges.modelVersion,
           sampleSize: schema.edges.sampleSize,
           resolutionMatchStatus: schema.edges.resolutionMatchStatus,
+          evidence: schema.edges.evidence,
         })
         .from(schema.edges)
         .where(and(...edgeConditions));

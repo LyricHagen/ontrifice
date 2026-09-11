@@ -31,8 +31,13 @@ interface SubgraphResult {
   markets: Array<{
     id: string;
     title: string;
+    platform: string;
+    platformMarketId: string;
     currentProbability: string | null;
+    volumeUsd: string | null;
     category: string | null;
+    status: string;
+    metadata: Record<string, unknown> | null;
   }>;
   edges: EdgeRecord[];
 }
@@ -182,8 +187,13 @@ export async function getNeighbors(
         .select({
           id: schema.markets.id,
           title: schema.markets.title,
+          platform: schema.markets.platform,
+          platformMarketId: schema.markets.platformMarketId,
           currentProbability: schema.markets.currentProbability,
+          volumeUsd: schema.markets.volumeUsd,
           category: schema.markets.category,
+          status: schema.markets.status,
+          metadata: schema.markets.metadata,
         })
         .from(schema.markets)
         .where(inArray(schema.markets.id, marketIds))

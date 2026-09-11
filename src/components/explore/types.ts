@@ -1,3 +1,5 @@
+export type GraphMode = "empty" | "ego" | "browse";
+
 export interface MarketNode {
   id: string;
   platform: "polymarket" | "kalshi" | "limitless";
@@ -29,11 +31,7 @@ export interface GraphEdge {
   modelVersion: string | null;
   sampleSize: number | null;
   resolutionMatchStatus: string | null;
-}
-
-export interface GraphData {
-  markets: MarketNode[];
-  edges: GraphEdge[];
+  evidence?: Record<string, unknown> | null;
 }
 
 export interface MarketDetail {
@@ -102,22 +100,143 @@ export interface EdgeDetail {
   } | null;
 }
 
-export interface Filters {
-  search: string;
-  platforms: Set<string>;
-  categories: Set<string>;
-  relationClasses: Set<string>;
-  minScore: number;
+export interface EdgeStyle {
+  color: string;
+  colorLight: string;
+  width: number;
+  dash: number[];
+  directed: boolean;
+  label: string;
 }
 
-export const PLATFORM_COLORS: Record<string, string> = {
-  polymarket: "#4a7cff",
-  kalshi: "#7c7c7c",
-  limitless: "#a0522d",
+export function getEdgeStyle(
+  relationType: string,
+  evidence?: Record<string, unknown> | null,
+): EdgeStyle {
+  const isExhaustive = evidence?.collectivelyExhaustive === true;
+
+  if (relationType === "mutually_exclusive" && isExhaustive) {
+    return {
+      color: "#d4d4d4",
+      colorLight: "#262626",
+      width: 2,
+      dash: [],
+      directed: false,
+      label: "ME + exhaustive",
+    };
+  }
+
+  if (relationType === "mutually_exclusive") {
+    return {
+      color: "#b05050",
+      colorLight: "#9a3030",
+      width: 1.5,
+      dash: [],
+      directed: false,
+      label: "mutual exclusion",
+    };
+  }
+
+  if (relationType === "implies") {
+    return {
+      color: "#5080b0",
+      colorLight: "#3060a0",
+      width: 1,
+      dash: [],
+      directed: true,
+      label: "implication",
+    };
+  }
+
+  if (relationType === "temporal_precondition") {
+    return {
+      color: "#508060",
+      colorLight: "#306040",
+      width: 1,
+      dash: [6, 4],
+      directed: true,
+      label: "temporal precondition",
+    };
+  }
+
+  return {
+    color: "#333333",
+    colorLight: "#cccccc",
+    width: 0.5,
+    dash: [2, 3],
+    directed: false,
+    label: "semantic",
+  };
+}
+
+export function getEdgeTypeKey(
+  relationType: string,
+  evidence?: Record<string, unknown> | null,
+): string {
+  if (
+    relationType === "mutually_exclusive" &&
+    evidence?.collectivelyExhaustive === true
+  ) {
+    return "mutually_exclusive+exhaustive";
+  }
+  return relationType;
+}
+
+export const NODE_COLORS: Record<
+  string,
+  { fill: string; fillLight: string; stroke: string; strokeLight: string }
+> = {
+  polymarket: {
+    fill: "#5B8A9A",
+    fillLight: "#4A7A8A",
+    stroke: "#7AAAB8",
+    strokeLight: "#3A6A7A",
+  },
+  kalshi: {
+    fill: "#B8934A",
+    fillLight: "#A8833A",
+    stroke: "#D4AD6A",
+    strokeLight: "#887030",
+  },
+  limitless: {
+    fill: "#7c7c7c",
+    fillLight: "#6c6c6c",
+    stroke: "#9c9c9c",
+    strokeLight: "#5c5c5c",
+  },
 };
 
-export const RELATION_CLASS_COLORS: Record<string, { dark: string; light: string; opacity: number }> = {
-  semantic: { dark: "#e5e5e5", light: "#0a0a0a", opacity: 0.2 },
-  statistical: { dark: "#4a7cff", light: "#4a7cff", opacity: 0.3 },
-  logical: { dark: "#ffffff", light: "#000000", opacity: 0.4 },
+export const EDGE_TYPE_DESCRIPTIONS: Record<string, string> = {
+  mutually_exclusive:
+    "These markets cannot both resolve YES. At most one outcome occurs.",
+  implies:
+    "If the source market resolves YES, the target must also resolve YES.",
+  temporal_precondition:
+    "The source event must occur before the target event can occur.",
+  "mutually_exclusive+exhaustive":
+    "Full logical complements. Exactly one must resolve YES.",
 };
+
+export const LEGEND_ENTRIES: Array<{
+  relationType: string;
+  evidence?: Record<string, unknown>;
+  label: string;
+}> = [
+  {
+    relationType: "mutually_exclusive",
+    evidence: { collectivelyExhaustive: true },
+    label: "complement (ME + exhaustive)",
+  },
+  {
+    relationType: "mutually_exclusive",
+    label: "mutual exclusion",
+  },
+  {
+    relationType: "implies",
+    label: "implication",
+  },
+  {
+    relationType: "temporal_precondition",
+    label: "temporal precondition",
+  },
+];

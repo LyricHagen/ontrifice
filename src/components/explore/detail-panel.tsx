@@ -1,6 +1,7 @@
 "use client";
 
 import type { MarketDetail, EdgeDetail } from "./types";
+import { getEdgeStyle, getEdgeTypeKey, EDGE_TYPE_DESCRIPTIONS } from "./types";
 
 interface DetailPanelProps {
   detail: MarketDetail | null;
@@ -14,30 +15,20 @@ interface DetailPanelProps {
   isBottomSheet: boolean;
 }
 
-function platformUrl(platform: string, platformMarketId: string, metadata: Record<string, unknown> | null): string | null {
+function platformUrl(
+  platform: string,
+  platformMarketId: string,
+  metadata: Record<string, unknown> | null,
+): string | null {
   if (metadata && typeof metadata.url === "string") return metadata.url;
   switch (platform) {
     case "polymarket":
       return `https://polymarket.com/event/${platformMarketId}`;
     case "kalshi":
       return `https://kalshi.com/markets/${platformMarketId}`;
-    case "limitless":
-      return `https://limitless.exchange/markets/${platformMarketId}`;
     default:
       return null;
   }
-}
-
-function directionArrow(direction: string, marketId: string, sourceId: string): string {
-  if (direction === "bidirectional") return "<->";
-  if (direction === "source_leads") return sourceId === marketId ? "->" : "<-";
-  return sourceId === marketId ? "<-" : "->";
-}
-
-function classTag(rc: string): string {
-  if (rc === "logical") return "[LOG]";
-  if (rc === "statistical") return "[STAT]";
-  return "[SEM]";
 }
 
 function formatDate(dateStr: string): string {
@@ -46,6 +37,30 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3 text-xs font-mono">
+      <span className="text-text-secondary shrink-0">{label}</span>
+      <span className="text-right" style={{ wordBreak: "break-word" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function RelationTypeTag({ relationType }: { relationType: string }) {
+  const labels: Record<string, string> = {
+    mutually_exclusive: "mutual exclusion",
+    implies: "implication",
+    temporal_precondition: "temporal",
+  };
+  return (
+    <span className="font-mono text-xs text-text-secondary">
+      {labels[relationType] ?? relationType.replace(/_/g, " ")}
+    </span>
+  );
 }
 
 function EdgeDetailView({
@@ -57,17 +72,20 @@ function EdgeDetailView({
 }) {
   const { edge, sourceMarket, targetMarket } = edgeDetail;
   const evidence = edge.evidence ?? {};
-  const rc = edge.relationClass;
+  const typeKey = getEdgeTypeKey(edge.relationType, evidence);
+  const description = EDGE_TYPE_DESCRIPTIONS[typeKey];
+  const style = getEdgeStyle(edge.relationType, evidence);
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <span className="font-mono text-xs text-text-secondary uppercase tracking-wider">
-          Relation
+          Relationship
         </span>
-        <div className="text-sm font-semibold mt-1">
-          {rc.charAt(0).toUpperCase() + rc.slice(1)} / {edge.relationType}
-        </div>
+        <div className="text-sm font-semibold mt-1">{style.label}</div>
+        {description && (
+          <p className="text-xs text-text-secondary mt-1">{description}</p>
+        )}
       </div>
 
       {sourceMarket && (
@@ -76,8 +94,17 @@ function EdgeDetailView({
           className="text-left border border-border px-2 py-1.5 text-xs font-mono"
           style={{ borderRadius: "2px" }}
         >
-          <span className="text-text-secondary block" style={{ fontSize: "10px" }}>SOURCE</span>
-          <span className="block" style={{ wordBreak: "break-word" }}>{sourceMarket.title}</span>
+          <span
+            className="text-text-secondary block"
+            style={{ fontSize: "10px" }}
+          >
+            {edge.direction === "bidirectional"
+              ? "MARKET A"
+              : "SOURCE"}
+          </span>
+          <span className="block" style={{ wordBreak: "break-word" }}>
+            {sourceMarket.title}
+          </span>
           <span className="text-text-secondary">[{sourceMarket.platform}]</span>
         </button>
       )}
@@ -88,183 +115,71 @@ function EdgeDetailView({
           className="text-left border border-border px-2 py-1.5 text-xs font-mono"
           style={{ borderRadius: "2px" }}
         >
-          <span className="text-text-secondary block" style={{ fontSize: "10px" }}>TARGET</span>
-          <span className="block" style={{ wordBreak: "break-word" }}>{targetMarket.title}</span>
+          <span
+            className="text-text-secondary block"
+            style={{ fontSize: "10px" }}
+          >
+            {edge.direction === "bidirectional"
+              ? "MARKET B"
+              : "TARGET"}
+          </span>
+          <span className="block" style={{ wordBreak: "break-word" }}>
+            {targetMarket.title}
+          </span>
           <span className="text-text-secondary">[{targetMarket.platform}]</span>
         </button>
       )}
 
-      <div className="border-t border-border pt-3">
-        {rc === "statistical" && (
-          <StatisticalEvidence edge={edge} evidence={evidence} />
-        )}
-        {rc === "logical" && (
-          <LogicalEvidence edge={edge} sourceMarket={sourceMarket} targetMarket={targetMarket} />
-        )}
-        {rc === "semantic" && (
-          <SemanticEvidence edge={edge} evidence={evidence} />
+      <div className="border-t border-border pt-3 text-xs font-mono flex flex-col gap-1">
+        <Row
+          label="Confidence"
+          value={parseFloat(edge.confidence).toFixed(3)}
+        />
+        <Row label="Score" value={parseFloat(edge.score).toFixed(3)} />
+        {edge.modelVersion && (
+          <Row label="Detection" value={edge.modelVersion} />
         )}
       </div>
 
-      <div className="border-t border-border pt-3 text-xs font-mono text-text-secondary flex flex-col gap-1">
-        <Row label="Model version" value={edge.modelVersion ?? "--"} />
-        <Row label="Observed" value={formatDate(edge.observedAt)} />
-        {edge.validUntil && <Row label="Valid until" value={formatDate(edge.validUntil)} />}
-      </div>
-    </div>
-  );
-}
-
-function StatisticalEvidence({
-  edge,
-  evidence,
-}: {
-  edge: EdgeDetail["edge"];
-  evidence: Record<string, unknown>;
-}) {
-  const pearsonR = evidence.pearson_r ?? evidence.pearsonR;
-  const rawP = evidence.raw_p_value ?? evidence.rawPValue ?? evidence.p_value ?? evidence.pValue;
-  const fdrP = evidence.fdr_adjusted_p ?? evidence.fdrAdjustedP;
-  const window = evidence.window ?? evidence.window_days;
-  const lag = evidence.lag ?? evidence.lead_lag;
-  const responseStdDev = evidence.response_std_dev ?? evidence.responseStdDev;
-  const responseN = evidence.response_n ?? evidence.responseN;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <span className="font-mono text-xs text-text-secondary uppercase tracking-wider block mb-2">
-          Evidence
-        </span>
-        <div className="text-xs font-mono flex flex-col gap-1">
-          {pearsonR != null && <Row label="Pearson r" value={formatNum(pearsonR, true)} />}
-          {rawP != null && <Row label="Raw p-value" value={formatNum(rawP)} />}
-          {fdrP != null && <Row label="FDR-adjusted p" value={formatNum(fdrP)} />}
-          {window != null && <Row label="Window" value={`${window} days`} />}
-          <Row label="Sample size" value={edge.sampleSize != null ? `${edge.sampleSize} observations` : "--"} />
-          {lag != null && <Row label="Lag" value={String(lag)} />}
-          <Row label="Score" value={parseFloat(edge.score).toFixed(3)} />
-          <Row label="Confidence" value={parseFloat(edge.confidence).toFixed(3)} />
-        </div>
-      </div>
-
-      {(responseStdDev != null || responseN != null) && (
-        <div>
+      {edge.mathematicalSemantics && (
+        <div className="border-t border-border pt-3">
           <span className="font-mono text-xs text-text-secondary uppercase tracking-wider block mb-2">
-            Historical response
+            Mathematical semantics
           </span>
-          <div className="text-xs font-mono text-text-secondary" style={{ lineHeight: "1.6" }}>
-            {responseStdDev != null && (
-              <span>
-                When source moved +1 std dev, target moved {formatNum(responseStdDev, true)} std dev
-                {responseN != null && <span> (mean, n={String(responseN)})</span>}
-              </span>
-            )}
+          <div
+            className="text-xs font-mono"
+            style={{ lineHeight: "1.6", wordBreak: "break-word" }}
+          >
+            {edge.mathematicalSemantics}
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-function LogicalEvidence({
-  edge,
-  sourceMarket,
-  targetMarket,
-}: {
-  edge: EdgeDetail["edge"];
-  sourceMarket: EdgeDetail["sourceMarket"];
-  targetMarket: EdgeDetail["targetMarket"];
-}) {
-  const srcTitle = sourceMarket?.title ?? "source market";
-  const tgtTitle = targetMarket?.title ?? "target market";
-
-  let basisText = "";
-  if (edge.relationType === "implies") {
-    basisText = `If [${srcTitle}] resolves YES, then [${tgtTitle}] must resolve YES.`;
-  } else if (edge.relationType === "mutex") {
-    basisText = `[${srcTitle}] and [${tgtTitle}] cannot both resolve YES.`;
-  } else if (edge.relationType === "equivalent") {
-    basisText = `[${srcTitle}] and [${tgtTitle}] must resolve identically.`;
-  } else if (edge.mathematicalSemantics) {
-    basisText = edge.mathematicalSemantics;
-  } else {
-    basisText = `Logical ${edge.relationType} between source and target.`;
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
+      <div className="border-t border-border pt-3">
         <span className="font-mono text-xs text-text-secondary uppercase tracking-wider block mb-2">
-          Basis
+          Collateral implication
         </span>
-        <div className="text-xs font-mono" style={{ lineHeight: "1.6", wordBreak: "break-word" }}>
-          {basisText}
+        <div
+          className="text-xs text-text-secondary"
+          style={{ lineHeight: "1.6" }}
+        >
+          If you hold positions in both markets, this relationship reduces your
+          max loss by constraining which outcomes are simultaneously feasible.
         </div>
       </div>
 
-      <div className="text-xs font-mono flex flex-col gap-1">
-        <Row label="Resolution match" value={edge.resolutionMatchStatus ?? "--"} />
-        <Row label="Confidence" value={parseFloat(edge.confidence).toFixed(3)} />
-        <Row label="Score" value={parseFloat(edge.score).toFixed(3)} />
+      <div className="border-t border-border pt-3 text-xs font-mono text-text-secondary flex flex-col gap-1">
+        <Row label="Observed" value={formatDate(edge.observedAt)} />
+        {edge.validUntil && (
+          <Row label="Valid until" value={formatDate(edge.validUntil)} />
+        )}
+        <Row
+          label="Resolution match"
+          value={edge.resolutionMatchStatus ?? "unverified"}
+        />
       </div>
     </div>
   );
-}
-
-function SemanticEvidence({
-  edge,
-  evidence,
-}: {
-  edge: EdgeDetail["edge"];
-  evidence: Record<string, unknown>;
-}) {
-  const cosineSim = evidence.cosine_similarity ?? evidence.cosineSimilarity;
-  const sharedEntities = evidence.shared_entities ?? evidence.sharedEntities;
-  const categoryMatch = evidence.category_match ?? evidence.categoryMatch;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <span className="font-mono text-xs text-text-secondary uppercase tracking-wider block mb-2">
-          Basis
-        </span>
-        <div className="text-xs font-mono flex flex-col gap-1">
-          {cosineSim != null && <Row label="TF-IDF cosine similarity" value={formatNum(cosineSim)} />}
-          {Array.isArray(sharedEntities) && sharedEntities.length > 0 && (
-            <Row label="Shared entities" value={sharedEntities.join(", ")} />
-          )}
-          {categoryMatch != null && <Row label="Category match" value={String(categoryMatch)} />}
-          <Row label="Score" value={parseFloat(edge.score).toFixed(3)} />
-          <Row label="Confidence" value={parseFloat(edge.confidence).toFixed(3)} />
-        </div>
-      </div>
-
-      <div className="text-xs font-mono text-text-secondary border-t border-border pt-2" style={{ lineHeight: "1.6" }}>
-        WARNING: Textual similarity does not guarantee meaningful economic relationship.
-      </div>
-
-      <div className="text-xs font-mono flex flex-col gap-1">
-        <Row label="Resolution match" value={edge.resolutionMatchStatus ?? "unverified"} />
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-3 text-xs font-mono">
-      <span className="text-text-secondary shrink-0">{label}</span>
-      <span className="text-right" style={{ wordBreak: "break-word" }}>{value}</span>
-    </div>
-  );
-}
-
-function formatNum(val: unknown, showSign?: boolean): string {
-  const n = typeof val === "number" ? val : parseFloat(String(val));
-  if (isNaN(n)) return String(val);
-  const s = n.toFixed(3);
-  return showSign && n > 0 ? `+${s}` : s;
 }
 
 export function DetailPanel({
@@ -280,13 +195,16 @@ export function DetailPanel({
 }: DetailPanelProps) {
   const panelClasses = isBottomSheet
     ? "fixed bottom-0 left-0 right-0 z-30 bg-surface border-t border-border max-h-[60vh] overflow-y-auto"
-    : "w-[320px] shrink-0 border-l border-border bg-surface overflow-y-auto";
+    : "w-[280px] shrink-0 border-l border-border bg-surface overflow-y-auto";
 
   return (
-    <div className={panelClasses} style={{ height: isBottomSheet ? "auto" : "100%" }}>
+    <div
+      className={panelClasses}
+      style={{ height: isBottomSheet ? "auto" : "100%" }}
+    >
       <div className="px-3 py-3 border-b border-border flex items-center justify-between">
         <span className="font-mono text-xs font-semibold uppercase tracking-wider text-text-secondary">
-          {mode === "edge" ? "Edge detail" : "Market detail"}
+          {mode === "edge" ? "Relationship" : "Market"}
         </span>
         <button
           onClick={onClose}
@@ -300,12 +218,12 @@ export function DetailPanel({
       <div className="px-3 py-3">
         {loading && (
           <div className="flex flex-col gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
                 className="h-3 bg-surface-raised animate-pulse"
                 style={{
-                  width: `${[100, 60, 40, 80, 70, 50][i]}%`,
+                  width: `${[100, 60, 40, 80, 50][i]}%`,
                   borderRadius: "2px",
                 }}
               />
@@ -315,9 +233,7 @@ export function DetailPanel({
 
         {error && (
           <div className="text-sm font-mono">
-            <p className="text-foreground mb-1">
-              {mode === "edge" ? "Failed to load edge details." : "Failed to load market details."}
-            </p>
+            <p className="text-foreground mb-1">Failed to load details.</p>
             <p className="text-text-secondary text-xs">{error}</p>
           </div>
         )}
@@ -329,24 +245,26 @@ export function DetailPanel({
         {mode === "market" && detail && !loading && (
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-sm font-semibold leading-snug">
+              <h2
+                className="text-sm font-semibold leading-snug"
+                style={{ wordBreak: "break-word" }}
+              >
                 {detail.market.title}
               </h2>
               <span className="font-mono text-xs text-text-secondary mt-1 inline-block">
-                [{detail.market.platform}]
+                {detail.market.platform}
               </span>
-            </div>
-
-            <div>
-              <span className="font-mono text-2xl font-bold">
-                {detail.market.currentProbability
-                  ? `${(parseFloat(detail.market.currentProbability) * 100).toFixed(1)}%`
-                  : "--"}
-              </span>
-              <span className="text-xs text-text-secondary ml-2">probability</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div>
+                <span className="text-text-secondary block">Probability</span>
+                <span className="text-base font-bold">
+                  {detail.market.currentProbability
+                    ? `${(parseFloat(detail.market.currentProbability) * 100).toFixed(1)}%`
+                    : "--"}
+                </span>
+              </div>
               <div>
                 <span className="text-text-secondary block">Volume</span>
                 <span>
@@ -355,25 +273,23 @@ export function DetailPanel({
                     : "--"}
                 </span>
               </div>
-              <div>
-                <span className="text-text-secondary block">Category</span>
-                <span>{detail.market.category ?? "--"}</span>
-              </div>
-              <div>
-                <span className="text-text-secondary block">Status</span>
-                <span>{detail.market.status}</span>
-              </div>
             </div>
 
-            {detail.connectedMarkets.length > 0 && (
+            {/* Structural relationships */}
+            {detail.edges.length > 0 && (
               <div>
                 <span className="block text-xs font-mono text-text-secondary mb-2 uppercase tracking-wider">
-                  Connected markets ({detail.connectedMarkets.length})
+                  Structural relationships (
+                  {detail.edges.filter((e) => e.relationClass === "logical")
+                    .length}
+                  )
                 </span>
                 <div className="flex flex-col gap-1.5">
                   {detail.edges
+                    .filter((e) => e.relationClass === "logical")
                     .sort(
-                      (a, b) => parseFloat(b.score) - parseFloat(a.score),
+                      (a, b) =>
+                        parseFloat(b.confidence) - parseFloat(a.confidence),
                     )
                     .map((edge) => {
                       const neighborId =
@@ -391,37 +307,28 @@ export function DetailPanel({
                       return (
                         <div
                           key={edge.id}
-                          className="border border-border px-2 py-1.5 text-xs font-mono flex items-start gap-1.5"
+                          className="border border-border px-2 py-1.5 text-xs font-mono"
                           style={{ borderRadius: "2px" }}
                         >
-                          <span className="text-accent shrink-0">
-                            {directionArrow(
-                              edge.direction,
-                              detail.market.id,
-                              edge.sourceMarketId,
-                            )}
-                          </span>
                           <button
                             onClick={() => onNodeClick(neighborId)}
-                            className="flex-1 min-w-0 text-left"
+                            className="w-full text-left"
                           >
                             <span className="block truncate">{title}</span>
-                            <span className="text-text-secondary">
-                              {classTag(edge.relationClass)} {edge.relationType} &middot;{" "}
-                              {parseFloat(edge.score).toFixed(3)}
-                              {edge.relationClass === "statistical" && edge.sampleSize != null && (
-                                <span> &middot; n={edge.sampleSize}</span>
-                              )}
-                            </span>
                           </button>
-                          <button
-                            onClick={() => onEdgeClick(edge.id)}
-                            className="shrink-0 text-accent"
-                            style={{ fontSize: "10px" }}
-                            aria-label="View edge evidence"
-                          >
-                            evidence
-                          </button>
+                          <div className="flex items-center justify-between mt-1">
+                            <RelationTypeTag
+                              relationType={edge.relationType}
+                            />
+                            <button
+                              onClick={() => onEdgeClick(edge.id)}
+                              className="text-accent"
+                              style={{ fontSize: "10px" }}
+                              aria-label="View relationship evidence"
+                            >
+                              details
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -429,6 +336,7 @@ export function DetailPanel({
               </div>
             )}
 
+            {/* Link to platform */}
             {(() => {
               const url = platformUrl(
                 detail.market.platform,
@@ -447,6 +355,14 @@ export function DetailPanel({
                 </a>
               );
             })()}
+
+            {/* Link to analyzer */}
+            <a
+              href={`/analyzer`}
+              className="text-xs font-mono text-accent"
+            >
+              Add to portfolio in Analyzer
+            </a>
           </div>
         )}
       </div>
