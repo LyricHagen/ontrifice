@@ -39,6 +39,7 @@ interface GraphCanvasProps {
   onEdgeClick: (edgeId: string) => void;
   onExpandNode: (id: string) => void;
   centerOnNodeRef?: MutableRefObject<((id: string) => void) | null>;
+  semanticNodeIds?: Set<string>;
 }
 
 function getTheme(): "dark" | "light" {
@@ -115,6 +116,7 @@ export function GraphCanvas({
   onEdgeClick,
   onExpandNode,
   centerOnNodeRef,
+  semanticNodeIds,
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -238,6 +240,50 @@ export function GraphCanvas({
 
     ctx.setLineDash([]);
 
+    // --- Edge labels for small graphs ---
+    if (linksRef.current.length > 0 && linksRef.current.length < 10) {
+      for (const link of linksRef.current) {
+        const source = link.source as SimNode;
+        const target = link.target as SimNode;
+        const style = getEdgeStyle(link.relationType, link.evidence);
+        const midX = (source.x + target.x) / 2;
+        const midY = (source.y + target.y) / 2 - 10 / transform.k;
+
+        let labelAlpha = 0.8;
+        if (hoveredId) {
+          labelAlpha = hoveredEdgeIds.has(link.id) ? 0.9 : 0.06;
+        }
+        if (hovEdgeId) {
+          labelAlpha = link.id === hovEdgeId ? 1 : 0.06;
+        }
+        if (selectedEdgeId) {
+          labelAlpha = link.id === selectedEdgeId ? 1 : 0.1;
+        }
+        if (selectedNodeId && !hovEdgeId && !hoveredId) {
+          const src = source.id;
+          const tgt = target.id;
+          if (src === selectedNodeId || tgt === selectedNodeId) {
+            labelAlpha = 0.9;
+          } else {
+            labelAlpha = 0.08;
+          }
+        }
+
+        const eFontSize = Math.max(8, Math.min(10, 10 / transform.k));
+        ctx.font = `${eFontSize}px var(--font-ibm-plex-sans), sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.globalAlpha = labelAlpha;
+        ctx.strokeStyle = bgColor;
+        ctx.lineWidth = 3 / transform.k;
+        ctx.lineJoin = "round";
+        ctx.strokeText(style.label, midX, midY);
+        ctx.fillStyle = isDark ? "#888888" : "#555555";
+        ctx.fillText(style.label, midX, midY);
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // --- Draw nodes ---
     for (const node of nodesRef.current) {
       const platformColors =
@@ -247,6 +293,7 @@ export function GraphCanvas({
         ? platformColors.stroke
         : platformColors.strokeLight;
       let alpha = 1;
+      if (semanticNodeIds?.has(node.id)) alpha = 0.4;
       const isFocal = node.id === focalNodeId;
       const nodeRadius = isFocal ? Math.max(node.radius, 10) : node.radius;
 
@@ -394,7 +441,8 @@ export function GraphCanvas({
 
     ctx.restore();
 
-    // --- Legend (screen space) ---
+    // --- Legend (screen space, only when graph has nodes) ---
+    if (nodesRef.current.length > 0) {
     const canvasH = canvas.height / dpr;
     const legendX = 16;
     let legendY = canvasH - 16 - LEGEND_ENTRIES.length * 18;
@@ -458,12 +506,14 @@ export function GraphCanvas({
     }
 
     ctx.restore();
+    }
   }, [
     selectedNodeId,
     selectedEdgeId,
     focalNodeId,
     expandedNodes,
     mode,
+    semanticNodeIds,
   ]);
 
   useEffect(() => {
@@ -536,8 +586,34 @@ export function GraphCanvas({
     const cx = rect.width / 2;
     const cy = rect.height / 2;
     const isEgo = mode === "ego";
-    const chargeStrength = isEgo ? -400 : -150;
-    const linkDist = isEgo ? 150 : 200;
+    const isSmallGraph = nodes.length < 5;
+
+    if (nodes.length === 2 && isEgo && focalNodeId) {
+      const gap = 300;
+      const focal = nodes.find((n) => n.id === focalNodeId);
+      const other = nodes.find((n) => n.id !== focalNodeId);
+      if (focal && other) {
+        focal.x = cx - gap / 2;
+        focal.y = cy;
+        focal.fx = cx - gap / 2;
+        focal.fy = cy;
+        other.x = cx + gap / 2;
+        other.y = cy;
+      }
+    }
+
+    const chargeStrength = isEgo
+      ? isSmallGraph
+        ? -800
+        : -400
+      : -150;
+    const linkDist = isEgo
+      ? nodes.length <= 2
+        ? 300
+        : isSmallGraph
+          ? 200
+          : 150
+      : 200;
 
     // Clustering force for browse mode
     let clusters: Map<string, Set<string>> | undefined;
@@ -591,7 +667,7 @@ export function GraphCanvas({
       .force("center", d3.forceCenter(cx, cy).strength(0.05))
       .force(
         "collision",
-        d3.forceCollide<SimNode>().radius((d) => d.radius + 4),
+        d3.forceCollide<SimNode>().radius((d) => d.radius + (isSmallGraph ? 40 : 4)),
       )
       .alphaDecay(0.03)
       .stop();
@@ -627,7 +703,7 @@ export function GraphCanvas({
 
     simulationRef.current = simulation;
 
-    const tickCount = prevPos.size > 0 ? 80 : 200;
+    const tickCount = nodes.length <= 2 ? 20 : prevPos.size > 0 ? 80 : 200;
     let ticksDone = 0;
     const chunkSize = 20;
 

@@ -177,6 +177,10 @@ export function Explorer({
   const [isMobile, setIsMobile] = useState(false);
   const [browseHiddenCount, setBrowseHiddenCount] = useState(0);
 
+  const [semanticNodes, setSemanticNodes] = useState<MarketNode[]>([]);
+  const [semanticEdges, setSemanticEdges] = useState<GraphEdge[]>([]);
+  const [showSemantic, setShowSemantic] = useState(false);
+
   const centerOnNodeRef = useRef<((id: string) => void) | null>(null);
 
   useEffect(() => {
@@ -414,6 +418,56 @@ export function Explorer({
     }
   }, [initialMode, mode, nodes.length, loadBrowseGraph]);
 
+  // Fetch semantic neighbors for ego mode
+  useEffect(() => {
+    if (mode !== "ego" || !focalNodeId) {
+      setSemanticNodes([]);
+      setSemanticEdges([]);
+      setShowSemantic(false);
+      return;
+    }
+
+    fetch(
+      `/api/graph/edges?market_id=${encodeURIComponent(focalNodeId)}&depth=1&relation_class=semantic`,
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        const sNodes: MarketNode[] = (data.nodes ?? []).map(
+          (n: Record<string, unknown>) => ({
+            id: n.id,
+            platform: n.platform ?? "polymarket",
+            platformMarketId: n.platformMarketId ?? "",
+            title: n.title ?? "Unknown",
+            category: n.category ?? null,
+            currentProbability: n.currentProbability ?? null,
+            volumeUsd: n.volumeUsd ?? null,
+            status: n.status ?? "active",
+            metadata: n.metadata ?? null,
+          }),
+        );
+        const sEdges: GraphEdge[] = (data.edges ?? []).map(
+          (e: Record<string, unknown>) => ({
+            id: e.id,
+            sourceMarketId: e.sourceMarketId,
+            targetMarketId: e.targetMarketId,
+            relationClass: (e.relationClass as GraphEdge["relationClass"]) ?? "semantic",
+            relationType: (e.relationType as string) ?? "semantic",
+            score: String(e.score ?? "0"),
+            confidence: String(e.confidence ?? "0"),
+            direction: (e.direction as GraphEdge["direction"]) ?? "bidirectional",
+            mathematicalSemantics: e.mathematicalSemantics as string | null ?? null,
+            modelVersion: e.modelVersion as string | null ?? null,
+            sampleSize: e.sampleSize as number | null ?? null,
+            resolutionMatchStatus: e.resolutionMatchStatus as string | null ?? null,
+            evidence: e.evidence as Record<string, unknown> | null ?? null,
+          }),
+        );
+        setSemanticNodes(sNodes);
+        setSemanticEdges(sEdges);
+      })
+      .catch(() => {});
+  }, [focalNodeId, mode]);
+
   // Select market from search
   const handleSearchSelect = useCallback(
     (market: MarketSearchResult) => {
@@ -496,11 +550,32 @@ export function Explorer({
     setEdges([]);
     setFocalNodeId(null);
     setExpandedNodes(new Set());
+    setShowSemantic(false);
     handleCloseDetail();
   }, [handleCloseDetail]);
 
+  const structuralNodeIds = new Set(nodes.map((n) => n.id));
+  const semanticOnlyNodes = semanticNodes.filter(
+    (n) => !structuralNodeIds.has(n.id),
+  );
+  const displayNodes = showSemantic
+    ? [...nodes, ...semanticOnlyNodes]
+    : nodes;
+  const displayEdges = showSemantic
+    ? [...edges, ...semanticEdges]
+    : edges;
+  const semanticOnlyNodeIds = showSemantic
+    ? new Set(semanticOnlyNodes.map((n) => n.id))
+    : undefined;
+
+  const isEmptyEgoResult =
+    mode === "ego" && !loading && !error && nodes.length >= 1 && edges.length === 0;
+  const isSparseEgoGraph =
+    mode === "ego" && !loading && edges.length > 0 && nodes.length < 3 && !showSemantic;
+
   const showPanel = selectedNodeId !== null || selectedEdgeId !== null;
-  const hasGraph = nodes.length > 0 && mode !== "empty";
+  const hasGraph =
+    displayNodes.length > 0 && mode !== "empty" && !isEmptyEgoResult;
 
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
@@ -585,6 +660,45 @@ export function Explorer({
           </div>
         )}
 
+        {/* Empty ego result — no structural constraints */}
+        {isEmptyEgoResult && (
+          <div className="absolute inset-0 flex items-center justify-center z-20">
+            <div className="max-w-md px-4">
+              <p className="font-mono text-sm text-foreground mb-2">
+                No structural constraints found for this market.
+              </p>
+              <p
+                className="font-sans text-xs text-text-secondary mb-4"
+                style={{ lineHeight: "1.6" }}
+              >
+                This means it doesn&apos;t participate in any proven mutual
+                exclusion, implication, or exhaustive relationships with other
+                tracked markets.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={loadBrowseGraph}
+                  className="text-xs font-mono text-accent text-left"
+                >
+                  Browse all structural relationships
+                </button>
+                <a
+                  href="/constraints"
+                  className="text-xs font-mono text-accent"
+                >
+                  View constraints browser
+                </a>
+                <button
+                  onClick={handleBackToSearch}
+                  className="text-xs font-mono text-text-secondary text-left mt-1"
+                >
+                  Back to search
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Top bar when graph is active */}
         {hasGraph && !loading && (
           <div
@@ -631,10 +745,45 @@ export function Explorer({
           </div>
         )}
 
+        {/* Sparse ego graph note */}
+        {isSparseEgoGraph && (
+          <div
+            className="absolute bottom-3 left-3 z-20 text-xs font-mono text-muted"
+            style={{ maxWidth: "320px", pointerEvents: "none" }}
+          >
+            This market has {edges.length} structural relationship
+            {edges.length !== 1 ? "s" : ""}. Markets with more connections
+            appear in Browse all mode.
+          </div>
+        )}
+
+        {/* Semantic neighbors toggle */}
+        {hasGraph && mode === "ego" && semanticOnlyNodes.length > 0 && (
+          <div
+            className="absolute bottom-3 right-3 z-20"
+            style={{ pointerEvents: "auto" }}
+          >
+            <button
+              onClick={() => setShowSemantic((s) => !s)}
+              className="text-xs font-mono bg-surface border border-border px-2 py-1.5"
+              style={{ borderRadius: "2px" }}
+            >
+              {showSemantic ? "Hide" : "Show"} {semanticOnlyNodes.length}{" "}
+              semantically related market
+              {semanticOnlyNodes.length !== 1 ? "s" : ""}
+            </button>
+            {!showSemantic && (
+              <div className="text-[10px] font-mono text-muted mt-1 text-right">
+                not structural constraints
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Canvas - always rendered as background */}
         <GraphCanvas
-          markets={hasGraph ? nodes : []}
-          edges={hasGraph ? edges : []}
+          markets={hasGraph ? displayNodes : []}
+          edges={hasGraph ? displayEdges : []}
           mode={mode}
           focalNodeId={focalNodeId}
           expandedNodes={expandedNodes}
@@ -644,6 +793,7 @@ export function Explorer({
           onEdgeClick={handleEdgeClick}
           onExpandNode={handleExpandNode}
           centerOnNodeRef={centerOnNodeRef}
+          semanticNodeIds={semanticOnlyNodeIds}
         />
       </div>
 
