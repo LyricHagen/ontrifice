@@ -9,19 +9,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        email: { type: "email" },
+        username: { type: "text" },
         password: { type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email as string | undefined;
+        const username = credentials?.username as string | undefined;
         const password = credentials?.password as string | undefined;
 
-        if (!email || !password) return null;
+        if (!username || !password) return null;
 
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.email, email.toLowerCase().trim()))
+          .where(eq(users.username, username.toLowerCase().trim()))
           .limit(1);
 
         if (!user) return null;
@@ -41,12 +41,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
       }
       return session;
     },

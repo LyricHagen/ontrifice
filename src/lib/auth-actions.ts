@@ -13,13 +13,13 @@ const loginAttempts = new Map<
   { count: number; resetAt: number }
 >();
 
-function checkRateLimit(email: string): boolean {
+function checkRateLimit(key: string): boolean {
   const now = Date.now();
-  const key = email.toLowerCase();
-  const entry = loginAttempts.get(key);
+  const normalized = key.toLowerCase();
+  const entry = loginAttempts.get(normalized);
 
   if (!entry || now > entry.resetAt) {
-    loginAttempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    loginAttempts.set(normalized, { count: 1, resetAt: now + 15 * 60 * 1000 });
     return true;
   }
 
@@ -31,28 +31,28 @@ function checkRateLimit(email: string): boolean {
 export async function login(
   formData: FormData,
 ): Promise<{ error: string } | undefined> {
-  const email = formData.get("email") as string;
+  const username = formData.get("username") as string;
   const password = formData.get("password") as string;
   const rawRedirect = (formData.get("redirectTo") as string) || "/explore";
   const redirectTo = rawRedirect.startsWith("/") ? rawRedirect : "/explore";
 
-  if (!email || !password) {
+  if (!username || !password) {
     return {
       error:
-        "The email or password you entered is incorrect. Double-check both and try again. If you don't have an account, sign up instead. Ontrifice does not support password resets at this time. (ERR_AUTH_INVALID_CREDENTIALS)",
+        "The username or password you entered is incorrect. Double-check both and try again. If you don't have an account, sign up instead. Ontrifice does not support password resets at this time. (ERR_AUTH_INVALID_CREDENTIALS)",
     };
   }
 
-  if (!checkRateLimit(email)) {
+  if (!checkRateLimit(username)) {
     return {
       error:
-        "Too many login attempts for this email. Wait 15 minutes before trying again. This protects your account from unauthorized access. (ERR_AUTH_RATE_LIMIT)",
+        "Too many login attempts for this account. Wait 15 minutes before trying again. This protects your account from unauthorized access. (ERR_AUTH_RATE_LIMIT)",
     };
   }
 
   try {
     await signIn("credentials", {
-      email: email.toLowerCase().trim(),
+      username: username.toLowerCase().trim(),
       password,
       redirectTo,
     });
@@ -60,7 +60,7 @@ export async function login(
     if (error instanceof AuthError) {
       return {
         error:
-          "The email or password you entered is incorrect. Double-check both and try again. If you don't have an account, sign up instead. Ontrifice does not support password resets at this time. (ERR_AUTH_INVALID_CREDENTIALS)",
+          "The username or password you entered is incorrect. Double-check both and try again. If you don't have an account, sign up instead. Ontrifice does not support password resets at this time. (ERR_AUTH_INVALID_CREDENTIALS)",
       };
     }
     throw error;
@@ -147,7 +147,7 @@ export async function signup(
 
   try {
     await signIn("credentials", {
-      email,
+      username: username.toLowerCase(),
       password,
       redirectTo: "/settings",
     });

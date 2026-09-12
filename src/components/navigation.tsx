@@ -13,16 +13,6 @@ const navLinks = [
   { href: "/docs", label: "Docs" },
 ];
 
-function truncateEmail(email: string): string {
-  if (email.length <= 24) return email;
-  const at = email.indexOf("@");
-  if (at <= 0) return email.slice(0, 24) + "...";
-  const local = email.slice(0, at);
-  const domain = email.slice(at);
-  const truncated = local.length > 12 ? local.slice(0, 12) + "..." : local;
-  return truncated + domain;
-}
-
 export function Navigation() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,7 +71,7 @@ export function Navigation() {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="text-sm text-text-secondary font-mono cursor-pointer bg-transparent border-none p-0 hover:text-foreground"
               >
-                {truncateEmail(session?.user?.email ?? "")}
+                {session?.user?.name ?? "account"}
               </button>
               {userMenuOpen && (
                 <div

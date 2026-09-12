@@ -48,17 +48,17 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label
-            htmlFor="email"
+            htmlFor="username"
             className="block text-sm text-text-secondary mb-1.5"
           >
-            Email
+            Username
           </label>
           <input
-            id="email"
-            name="email"
-            type="email"
+            id="username"
+            name="username"
+            type="text"
             required
-            autoComplete="email"
+            autoComplete="username"
             className="w-full px-3 py-2 bg-surface border border-border text-foreground text-sm"
             style={{ borderRadius: "2px" }}
           />
