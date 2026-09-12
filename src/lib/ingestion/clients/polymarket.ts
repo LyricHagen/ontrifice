@@ -4,8 +4,14 @@ import type { PlatformClient, RawMarket } from "../types";
 
 const BASE_URL = "https://gamma-api.polymarket.com";
 const PAGE_SIZE = 100;
-const MAX_MARKETS = 200;
+const MAX_MARKETS = 1200;
 const MAX_RETRIES = 3;
+
+interface PolymarketEvent {
+  id: string;
+  slug: string;
+  title: string;
+}
 
 interface PolymarketMarket {
   id: string;
@@ -20,7 +26,9 @@ interface PolymarketMarket {
   acceptingOrders: boolean;
   clobTokenIds?: string;
   negRisk?: boolean;
+  negRiskRequestID?: string;
   conditionId?: string;
+  events?: PolymarketEvent[];
 }
 
 function polymarketError(
@@ -135,6 +143,10 @@ function toRawMarket(market: PolymarketMarket): RawMarket | null {
         outcomes: market.outcomes,
         clobTokenIds: market.clobTokenIds,
         acceptingOrders: market.acceptingOrders,
+        negRisk: market.negRisk ?? false,
+        negRiskGroupId: market.negRisk ? market.negRiskRequestID : undefined,
+        conditionId: market.conditionId,
+        eventSlug: market.events?.[0]?.slug,
       },
     };
   } catch (error) {

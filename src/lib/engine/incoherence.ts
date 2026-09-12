@@ -48,28 +48,45 @@ async function detectProbabilitySumViolations(): Promise<IncoherenceResult[]> {
     }
   }
 
+  const allMarketIds = new Set<string>();
+  for (const group of mutualExclusionGroups.values()) {
+    for (const id of group.marketIds) allMarketIds.add(id);
+  }
+
+  const marketMap = new Map<string, { id: string; title: string; probability: number; volume: number }>();
+  if (allMarketIds.size > 0) {
+    const ids = Array.from(allMarketIds);
+    for (let i = 0; i < ids.length; i += 500) {
+      const batch = ids.slice(i, i + 500);
+      const markets = await db
+        .select({
+          id: schema.markets.id,
+          title: schema.markets.title,
+          currentProbability: schema.markets.currentProbability,
+          volumeUsd: schema.markets.volumeUsd,
+        })
+        .from(schema.markets)
+        .where(inArray(schema.markets.id, batch));
+
+      for (const m of markets) {
+        if (m.currentProbability) {
+          marketMap.set(m.id, {
+            id: m.id,
+            title: m.title,
+            probability: parseFloat(m.currentProbability),
+            volume: parseFloat(m.volumeUsd ?? "0"),
+          });
+        }
+      }
+    }
+  }
+
   const results: IncoherenceResult[] = [];
 
   for (const [groupId, group] of mutualExclusionGroups) {
-    const ids = Array.from(group.marketIds);
-    const markets = await db
-      .select({
-        id: schema.markets.id,
-        title: schema.markets.title,
-        currentProbability: schema.markets.currentProbability,
-        volumeUsd: schema.markets.volumeUsd,
-      })
-      .from(schema.markets)
-      .where(inArray(schema.markets.id, ids));
-
-    const probabilities = markets
-      .filter((m) => m.currentProbability !== null)
-      .map((m) => ({
-        id: m.id,
-        title: m.title,
-        probability: parseFloat(m.currentProbability!),
-        volume: parseFloat(m.volumeUsd ?? "0"),
-      }));
+    const probabilities = Array.from(group.marketIds)
+      .map((id) => marketMap.get(id))
+      .filter((m): m is NonNullable<typeof m> => m !== undefined);
 
     if (probabilities.length < 2) continue;
 
@@ -145,51 +162,44 @@ async function detectProbabilitySumViolations(): Promise<IncoherenceResult[]> {
 async function detectProbabilityDivergences(): Promise<IncoherenceResult[]> {
   logger.info("checking probability divergences");
 
+  const allMarkets = await db
+    .select({
+      id: schema.markets.id,
+      title: schema.markets.title,
+      platform: schema.markets.platform,
+      currentProbability: schema.markets.currentProbability,
+      volumeUsd: schema.markets.volumeUsd,
+    })
+    .from(schema.markets);
+
+  const marketMap = new Map<string, { title: string; platform: string; probability: number; volume: number }>();
+  for (const m of allMarkets) {
+    if (!m.currentProbability) continue;
+    marketMap.set(m.id, {
+      title: m.title,
+      platform: m.platform,
+      probability: parseFloat(m.currentProbability),
+      volume: parseFloat(m.volumeUsd ?? "0"),
+    });
+  }
+
   const strongEdges = await db
     .select()
     .from(schema.edges)
-    .where(sql`${schema.edges.score}::numeric >= 0.5`);
+    .where(
+      and(
+        eq(schema.edges.relationClass, "logical"),
+        sql`${schema.edges.score}::numeric >= 0.5`,
+      ),
+    );
+
+  logger.info("divergence check", { strongEdges: strongEdges.length, markets: marketMap.size });
 
   const results: IncoherenceResult[] = [];
-  const marketCache = new Map<string, { title: string; probability: number; volume: number }>();
-
-  async function getMarket(id: string) {
-    if (marketCache.has(id)) return marketCache.get(id)!;
-    const [market] = await db
-      .select({
-        title: schema.markets.title,
-        currentProbability: schema.markets.currentProbability,
-        volumeUsd: schema.markets.volumeUsd,
-      })
-      .from(schema.markets)
-      .where(eq(schema.markets.id, id));
-
-    if (!market || !market.currentProbability) return null;
-    const result = {
-      title: market.title,
-      probability: parseFloat(market.currentProbability),
-      volume: parseFloat(market.volumeUsd ?? "0"),
-    };
-    marketCache.set(id, result);
-    return result;
-  }
-
-  const marketPlatformCache = new Map<string, string>();
-
-  async function getMarketPlatform(id: string): Promise<string | null> {
-    if (marketPlatformCache.has(id)) return marketPlatformCache.get(id)!;
-    const [row] = await db
-      .select({ platform: schema.markets.platform })
-      .from(schema.markets)
-      .where(eq(schema.markets.id, id));
-    if (!row) return null;
-    marketPlatformCache.set(id, row.platform);
-    return row.platform;
-  }
 
   for (const edge of strongEdges) {
-    const source = await getMarket(edge.sourceMarketId);
-    const target = await getMarket(edge.targetMarketId);
+    const source = marketMap.get(edge.sourceMarketId);
+    const target = marketMap.get(edge.targetMarketId);
     if (!source || !target) continue;
 
     const score = parseFloat(edge.score);
@@ -197,9 +207,7 @@ async function detectProbabilityDivergences(): Promise<IncoherenceResult[]> {
 
     const expectedMaxDiff = 1 - score;
     if (probDiff > expectedMaxDiff + 0.15) {
-      const sourcePlatform = await getMarketPlatform(edge.sourceMarketId);
-      const targetPlatform = await getMarketPlatform(edge.targetMarketId);
-      const isCrossPlatform = sourcePlatform !== null && targetPlatform !== null && sourcePlatform !== targetPlatform;
+      const isCrossPlatform = source.platform !== target.platform;
 
       const resolutionStatus = (edge as Record<string, unknown>).resolutionMatchStatus as string | null;
 

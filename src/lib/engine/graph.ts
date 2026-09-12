@@ -66,73 +66,57 @@ export async function buildGraph(
 
   logger.info("total edges to persist", { total: allEdges.length });
 
-  await db
-    .update(schema.edges)
-    .set({ validUntil: new Date() })
-    .where(sql`${schema.edges.validUntil} IS NULL`);
+  logger.info("clearing old edges");
+  await db.delete(schema.edges);
 
+  const BATCH_SIZE = 200;
   let created = 0;
-  let updated = 0;
 
-  for (const edge of allEdges) {
-    const source = edge.sourceMarketId < edge.targetMarketId
-      ? edge.sourceMarketId
-      : edge.targetMarketId;
-    const target = edge.sourceMarketId < edge.targetMarketId
-      ? edge.targetMarketId
-      : edge.sourceMarketId;
+  for (let i = 0; i < allEdges.length; i += BATCH_SIZE) {
+    const batch = allEdges.slice(i, i + BATCH_SIZE);
+    const rows = batch.map((edge) => {
+      const source = edge.sourceMarketId < edge.targetMarketId
+        ? edge.sourceMarketId
+        : edge.targetMarketId;
+      const target = edge.sourceMarketId < edge.targetMarketId
+        ? edge.targetMarketId
+        : edge.sourceMarketId;
 
-    const existing = await db
-      .select({ id: schema.edges.id })
-      .from(schema.edges)
-      .where(
-        and(
-          eq(schema.edges.sourceMarketId, source),
-          eq(schema.edges.targetMarketId, target),
-          eq(schema.edges.relationClass, edge.relationClass),
-          eq(schema.edges.relationType, edge.relationType),
-        ),
-      )
-      .limit(1);
+      const resolutionMatchStatus = "resolutionMatchStatus" in edge
+        ? (edge.resolutionMatchStatus as "verified_equivalent" | "likely_equivalent" | "unverified" | "divergent" | undefined)
+        : undefined;
 
-    const resolutionMatchStatus = "resolutionMatchStatus" in edge
-      ? (edge.resolutionMatchStatus as "verified_equivalent" | "likely_equivalent" | "unverified" | "divergent" | undefined)
-      : undefined;
+      return {
+        sourceMarketId: source,
+        targetMarketId: target,
+        relationClass: edge.relationClass,
+        relationType: edge.relationType,
+        score: edge.score.toFixed(8),
+        confidence: edge.confidence.toFixed(8),
+        direction: getDirection(edge),
+        mathematicalSemantics: edge.mathematicalSemantics,
+        evidence: edge.evidence as Record<string, unknown>,
+        modelVersion: edge.modelVersion,
+        algorithmParams: "algorithmParams" in edge
+          ? (edge.algorithmParams as Record<string, unknown>)
+          : null,
+        sampleSize: "sampleSize" in edge ? (edge.sampleSize as number) : null,
+        resolutionMatchStatus: resolutionMatchStatus ?? null,
+        observedAt: new Date(),
+        validUntil: null,
+      };
+    });
 
-    const values = {
-      sourceMarketId: source,
-      targetMarketId: target,
-      relationClass: edge.relationClass,
-      relationType: edge.relationType,
-      score: edge.score.toFixed(8),
-      confidence: edge.confidence.toFixed(8),
-      direction: getDirection(edge),
-      mathematicalSemantics: edge.mathematicalSemantics,
-      evidence: edge.evidence as Record<string, unknown>,
-      modelVersion: edge.modelVersion,
-      algorithmParams: "algorithmParams" in edge
-        ? (edge.algorithmParams as Record<string, unknown>)
-        : null,
-      sampleSize: "sampleSize" in edge ? (edge.sampleSize as number) : null,
-      resolutionMatchStatus: resolutionMatchStatus ?? null,
-      observedAt: new Date(),
-      validUntil: null,
-    };
+    await db.insert(schema.edges).values(rows);
+    created += rows.length;
 
-    if (existing.length > 0) {
-      await db
-        .update(schema.edges)
-        .set({ ...values, updatedAt: new Date() })
-        .where(eq(schema.edges.id, existing[0].id));
-      updated++;
-    } else {
-      await db.insert(schema.edges).values(values);
-      created++;
+    if ((i + BATCH_SIZE) % 5000 < BATCH_SIZE) {
+      logger.info("batch insert progress", { inserted: created, total: allEdges.length });
     }
   }
 
-  logger.info("graph build complete", { created, updated });
-  return { created, updated };
+  logger.info("graph build complete", { created, updated: 0 });
+  return { created, updated: 0 };
 }
 
 export async function getNeighbors(

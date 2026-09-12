@@ -3,8 +3,8 @@ import { AppError } from "@/lib/errors";
 import type { PlatformClient, RawMarket } from "../types";
 
 const BASE_URL = "https://api.elections.kalshi.com/trade-api/v2";
-const MAX_EVENTS = 50;
-const MAX_MARKETS = 200;
+const MAX_EVENTS = 200;
+const MAX_MARKETS = 1200;
 const MAX_RETRIES = 3;
 
 interface KalshiMarket {
@@ -145,7 +145,7 @@ function parseResolution(market: KalshiMarket): "yes" | "no" | "unresolved" | un
   return "unresolved";
 }
 
-function toRawMarket(market: KalshiMarket, eventCategory?: string): RawMarket | null {
+function toRawMarket(market: KalshiMarket, eventCategory?: string, eventMutuallyExclusive?: boolean): RawMarket | null {
   try {
     const yesBid = parseFloat(market.yes_bid_dollars);
     const yesAsk = parseFloat(market.yes_ask_dollars);
@@ -168,6 +168,7 @@ function toRawMarket(market: KalshiMarket, eventCategory?: string): RawMarket | 
         yesBidDollars: market.yes_bid_dollars,
         yesAskDollars: market.yes_ask_dollars,
         eventTicker: market.event_ticker,
+        eventMutuallyExclusive: eventMutuallyExclusive ?? false,
       },
     };
   } catch (error) {
@@ -189,7 +190,7 @@ export function createKalshiClient(): PlatformClient {
 
       for (let page = 0; page < MAX_EVENTS && allMarkets.length < MAX_MARKETS; page++) {
         const params = new URLSearchParams({
-          limit: String(Math.min(MAX_EVENTS, 20)),
+          limit: "200",
           status: "open",
           with_nested_markets: "true",
         });
@@ -217,7 +218,7 @@ export function createKalshiClient(): PlatformClient {
           const markets = event.markets ?? [];
           for (const m of markets) {
             if (allMarkets.length >= MAX_MARKETS) break;
-            const raw = toRawMarket(m, event.category);
+            const raw = toRawMarket(m, event.category, event.mutually_exclusive);
             if (raw && raw.status === "active") allMarkets.push(raw);
           }
           if (allMarkets.length >= MAX_MARKETS) break;

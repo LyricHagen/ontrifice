@@ -58,7 +58,7 @@ function extractNegRiskGroup(metadata: Record<string, unknown> | null): string |
 
 function extractEventId(metadata: Record<string, unknown> | null): string | null {
   if (!metadata) return null;
-  const eventId = metadata.eventId ?? metadata.event_id ?? metadata.conditionId;
+  const eventId = metadata.eventId ?? metadata.event_id ?? metadata.eventTicker ?? metadata.eventSlug;
   return typeof eventId === "string" ? eventId : null;
 }
 
@@ -109,6 +109,10 @@ function detectMutualExclusion(markets: MarketRecord[]): StructuralEdge[] {
     if (group.length < 2) continue;
     if (negRiskGroups.has(eventId)) continue;
 
+    const exhaustive = group.some(
+      (m) => m.metadata?.eventMutuallyExclusive === true,
+    );
+
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
         edges.push({
@@ -118,11 +122,13 @@ function detectMutualExclusion(markets: MarketRecord[]): StructuralEdge[] {
           relationType: "mutually_exclusive",
           score: 1.0,
           confidence: 1.0,
-          mathematicalSemantics: "P(A AND B) = 0; outcomes are mutually exclusive within event group",
+          mathematicalSemantics: exhaustive
+            ? "P(A AND B) = 0; outcomes are mutually exclusive and collectively exhaustive within this event"
+            : "P(A AND B) = 0; outcomes are mutually exclusive within event group",
           modelVersion: "structural-v2",
           evidence: {
             constraintType: "mutual_exclusion",
-            collectivelyExhaustive: false,
+            collectivelyExhaustive: exhaustive,
             groupId: eventId,
             reason: `both markets belong to event ${eventId}, at most one outcome can occur`,
           },
