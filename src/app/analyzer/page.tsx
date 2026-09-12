@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { PortfolioAnalyzer } from "@/components/analyzer/portfolio-analyzer";
 
 export const metadata: Metadata = {
-  title: "Analyzer",
+  title: "Portfolio Risk Analyzer",
   description:
-    "Compute collateral-efficient portfolios. Input your positions, see your true max loss and the proven relationships that reduce it.",
+    "Compute true max loss for prediction market portfolios. Input your positions, see your worst case given proven structural constraints.",
   openGraph: {
-    title: "Analyzer | Ontrifice",
+    title: "Portfolio Risk Analyzer | Ontrifice",
     description:
-      "Cross-market neg risk engine. Compute true max loss across correlated prediction market positions.",
+      "Compute true max loss across structurally constrained prediction market positions.",
     type: "website",
     url: "https://ontrifice.dev/analyzer",
   },

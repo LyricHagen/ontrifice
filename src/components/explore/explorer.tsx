@@ -20,7 +20,7 @@ interface MarketSearchResult {
 
 interface Stats {
   marketsCount: number;
-  structuralEdges: number;
+  constraintsCount: number;
   constraintTypes: number;
 }
 
@@ -202,7 +202,7 @@ export function Explorer({
       .then(([statsData, constraintsData]) => {
         setStats({
           marketsCount: statsData.marketsCount ?? 0,
-          structuralEdges: constraintsData.total ?? 0,
+          constraintsCount: constraintsData.total ?? 0,
           constraintTypes: statsData.constraintTypes ?? 0,
         });
       })
@@ -615,7 +615,7 @@ export function Explorer({
               {stats && (
                 <div className="text-center mt-12 text-xs font-mono text-muted">
                   {stats.marketsCount} markets tracked &middot;{" "}
-                  {stats.structuralEdges} structural relationships &middot;{" "}
+                  {stats.constraintsCount} proven constraints &middot;{" "}
                   {stats.constraintTypes} constraint types
                 </div>
               )}

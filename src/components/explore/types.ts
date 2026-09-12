@@ -209,6 +209,8 @@ export const NODE_COLORS: Record<
 export const EDGE_TYPE_DESCRIPTIONS: Record<string, string> = {
   mutually_exclusive:
     "These markets cannot both resolve YES. At most one outcome occurs.",
+  complement:
+    "Same binary question on different platforms. They resolve to the same truth value.",
   implies:
     "If the source market resolves YES, the target must also resolve YES.",
   temporal_precondition:
@@ -232,11 +234,11 @@ export const LEGEND_ENTRIES: Array<{
     label: "mutual exclusion",
   },
   {
-    relationType: "implies",
-    label: "implication",
+    relationType: "complement",
+    label: "complement (cross-platform)",
   },
   {
-    relationType: "temporal_precondition",
-    label: "temporal precondition",
+    relationType: "implies",
+    label: "implication",
   },
 ];

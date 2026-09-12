@@ -1,6 +1,6 @@
 # Ontrifice
 
-Cross-market neg risk engine for prediction markets. Proves structural relationships between contracts across Polymarket and Kalshi to compute collateral-efficient portfolios. The dependency graph is the inference layer; the collateral solver is the output layer.
+Cross-market structural risk analyzer for prediction markets. Detects provable logical relationships between contracts across Polymarket and Kalshi and uses them to compute true portfolio max loss. The dependency graph is the inference layer; the risk solver is the output layer.
 
 ## Stack
 
@@ -19,7 +19,7 @@ Cross-market neg risk engine for prediction markets. Proves structural relations
 
 ```
 /                landing (public)
-/analyzer        portfolio collateral analyzer (public)
+/analyzer        portfolio risk analyzer (public)
 /constraints     proven market relationships browser (public)
 /graph           relationship network visualization (public)
 /docs            API documentation (public)

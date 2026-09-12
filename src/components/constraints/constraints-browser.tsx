@@ -27,23 +27,31 @@ const RELATION_TYPES = [
   { value: "", label: "All types" },
   { value: "mutually_exclusive", label: "Mutual exclusion" },
   { value: "implies", label: "Implication" },
+  { value: "complement", label: "Complement" },
   { value: "temporal_precondition", label: "Temporal" },
 ];
 
 const RELATION_CLASSES = [
+  { value: "logical", label: "Logical (constraints)" },
   { value: "", label: "All classes" },
-  { value: "logical", label: "Logical" },
   { value: "statistical", label: "Statistical" },
-  { value: "semantic", label: "Semantic" },
+  { value: "semantic", label: "Semantic (similarities)" },
 ];
 
 const PLATFORMS = [
   { value: "", label: "All platforms" },
   { value: "polymarket", label: "Polymarket" },
   { value: "kalshi", label: "Kalshi" },
-  { value: "limitless", label: "Limitless" },
   { value: "cross-platform", label: "Cross-platform" },
 ];
+
+function middleTruncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  const keep = maxLen - 3;
+  const front = Math.ceil(keep * 0.4);
+  const back = Math.floor(keep * 0.6);
+  return str.slice(0, front) + "..." + str.slice(-back);
+}
 
 export function ConstraintsBrowser() {
   const [constraints, setConstraints] = useState<ConstraintRow[]>([]);
@@ -53,7 +61,7 @@ export function ConstraintsBrowser() {
   const [error, setError] = useState<string | null>(null);
 
   const [relationType, setRelationType] = useState("");
-  const [relationClass, setRelationClass] = useState("");
+  const [relationClass, setRelationClass] = useState("logical");
   const [platform, setPlatform] = useState("");
   const [minConfidence, setMinConfidence] = useState("");
 
@@ -102,48 +110,26 @@ export function ConstraintsBrowser() {
 
   const totalPages = Math.max(1, Math.ceil(total / 50));
 
-  const typeCounts = constraints.reduce(
-    (acc, c) => {
-      acc[c.relation_type] = (acc[c.relation_type] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+  const isSemanticView = relationClass === "semantic";
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="font-mono text-2xl font-bold mb-1">Constraints</h1>
         <p className="text-sm text-text-secondary">
-          Proven structural relationships between markets. These constraints
-          power collateral optimization in the analyzer.
+          {isSemanticView
+            ? "Semantic similarities between markets. These are textual matches, not usable for risk computation."
+            : "Proven structural constraints between markets. These power risk analysis in the analyzer."}
         </p>
       </div>
 
       {/* Stats bar */}
       <div className="flex gap-4 mb-4 text-xs font-mono text-text-secondary flex-wrap">
-        <span>{total.toLocaleString()} total relationships</span>
-        {Object.entries(typeCounts).map(([type, count]) => (
-          <span key={type}>
-            {count} {type.replace(/_/g, " ")}
-          </span>
-        ))}
+        <span>{total.toLocaleString()} {isSemanticView ? "similarities" : "constraints"}</span>
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <select
-          value={relationType}
-          onChange={(e) => setRelationType(e.target.value)}
-          className="bg-surface border border-border px-2 py-1.5 text-xs font-mono text-foreground"
-          style={{ borderRadius: "2px" }}
-        >
-          {RELATION_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
         <select
           value={relationClass}
           onChange={(e) => setRelationClass(e.target.value)}
@@ -153,6 +139,18 @@ export function ConstraintsBrowser() {
           {RELATION_CLASSES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={relationType}
+          onChange={(e) => setRelationType(e.target.value)}
+          className="bg-surface border border-border px-2 py-1.5 text-xs font-mono text-foreground"
+          style={{ borderRadius: "2px" }}
+        >
+          {RELATION_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
             </option>
           ))}
         </select>
@@ -168,17 +166,6 @@ export function ConstraintsBrowser() {
             </option>
           ))}
         </select>
-        <input
-          type="number"
-          placeholder="Min confidence"
-          value={minConfidence}
-          min={0}
-          max={1}
-          step={0.1}
-          onChange={(e) => setMinConfidence(e.target.value)}
-          className="w-32 bg-surface border border-border px-2 py-1.5 text-xs font-mono text-foreground placeholder:text-muted"
-          style={{ borderRadius: "2px" }}
-        />
       </div>
 
       {/* Error */}
@@ -220,7 +207,9 @@ export function ConstraintsBrowser() {
                     <th className="text-left px-4 py-2 font-normal">Market B</th>
                     <th className="text-left px-4 py-2 font-normal">Type</th>
                     <th className="text-left px-4 py-2 font-normal">Class</th>
-                    <th className="text-right px-4 py-2 font-normal">Confidence</th>
+                    <th className="text-right px-4 py-2 font-normal">
+                      {isSemanticView ? "Similarity" : "Confidence"}
+                    </th>
                     <th className="text-left px-4 py-2 font-normal">Platforms</th>
                   </tr>
                 </thead>
@@ -234,18 +223,20 @@ export function ConstraintsBrowser() {
                           setExpanded(expanded === c.id ? null : c.id)
                         }
                       >
-                        <td className="px-4 py-2 max-w-[200px] truncate" title={c.market_a.title}>
-                          {c.market_a.title}
+                        <td className="px-4 py-2 max-w-[200px]" title={c.market_a.title}>
+                          {middleTruncate(c.market_a.title, 45)}
                         </td>
-                        <td className="px-4 py-2 max-w-[200px] truncate" title={c.market_b.title}>
-                          {c.market_b.title}
+                        <td className="px-4 py-2 max-w-[200px]" title={c.market_b.title}>
+                          {middleTruncate(c.market_b.title, 45)}
                         </td>
                         <td className="px-4 py-2 text-text-secondary">
                           {c.relation_type.replace(/_/g, " ")}
                         </td>
                         <td className="px-4 py-2 text-text-secondary">{c.relation_class}</td>
                         <td className="px-4 py-2 text-right">
-                          {(parseFloat(c.confidence) * 100).toFixed(0)}%
+                          {isSemanticView
+                            ? parseFloat(c.score).toFixed(2)
+                            : (parseFloat(c.confidence) * 100).toFixed(0) + "%"}
                         </td>
                         <td className="px-4 py-2 text-text-secondary">
                           {c.market_a.platform === c.market_b.platform
@@ -257,9 +248,17 @@ export function ConstraintsBrowser() {
                         <tr key={`${c.id}-detail`} className="border-b border-border">
                           <td colSpan={6} className="px-4 py-3 bg-surface">
                             <div className="flex flex-col gap-2 text-xs">
+                              <div>
+                                <span className="text-text-secondary">Market A: </span>
+                                <span className="text-foreground">{c.market_a.title}</span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary">Market B: </span>
+                                <span className="text-foreground">{c.market_b.title}</span>
+                              </div>
                               {c.mathematical_semantics && (
                                 <div>
-                                  <span className="text-text-secondary">Math: </span>
+                                  <span className="text-text-secondary">Semantics: </span>
                                   <span className="text-foreground">{c.mathematical_semantics}</span>
                                 </div>
                               )}
@@ -275,8 +274,6 @@ export function ConstraintsBrowser() {
                               <div>
                                 <span className="text-text-secondary">Score: </span>
                                 <span>{parseFloat(c.score).toFixed(4)}</span>
-                                <span className="text-text-secondary ml-4">Direction: </span>
-                                <span>{c.direction}</span>
                                 {c.model_version && (
                                   <>
                                     <span className="text-text-secondary ml-4">Model: </span>

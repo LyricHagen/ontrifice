@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         market_id: s.marketId,
         market_title: s.marketTitle,
         relationship_count: s.relationshipCount,
-        potential_savings: s.potentialSavings,
+        potential_reduction: s.potentialReduction,
       })),
     });
   } catch (error) {

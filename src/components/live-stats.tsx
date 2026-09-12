@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 interface Stats {
   marketsCount: number;
-  edgesCount: number;
+  constraintsCount: number;
   constraintTypes: number;
 }
 
@@ -40,12 +40,12 @@ export function LiveStats() {
       .then((data) =>
         setStats({
           marketsCount: data.marketsCount ?? 0,
-          edgesCount: data.edgesCount ?? 0,
-          constraintTypes: data.constraintTypes ?? 3,
+          constraintsCount: data.constraintsCount ?? 0,
+          constraintTypes: data.constraintTypes ?? 4,
         }),
       )
       .catch(() => {
-        setStats({ marketsCount: 0, edgesCount: 0, constraintTypes: 0 });
+        setStats({ marketsCount: 0, constraintsCount: 0, constraintTypes: 0 });
       });
   }, []);
 
@@ -56,8 +56,8 @@ export function LiveStats() {
         value={stats ? stats.marketsCount.toLocaleString() : null}
       />
       <StatCell
-        label="Proven relationships"
-        value={stats ? stats.edgesCount.toLocaleString() : null}
+        label="Proven constraints"
+        value={stats ? stats.constraintsCount.toLocaleString() : null}
       />
       <StatCell
         label="Constraint types"

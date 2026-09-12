@@ -148,7 +148,7 @@ export default function PrivacyPage() {
             </h2>
             <p className="mb-3">
               Ontrifice aggregates publicly available market data from
-              Polymarket, Kalshi, and Limitless via their public APIs. We do not
+              Polymarket and Kalshi via their public APIs. We do not
               share your personal data with any of these providers or any other
               third party.
             </p>

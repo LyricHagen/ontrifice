@@ -10,7 +10,7 @@ export interface PositionInput {
 }
 
 export interface Constraint {
-  type: "mutual_exclusion" | "implication" | "mutual_exclusion_exhaustive";
+  type: "mutual_exclusion" | "implication" | "mutual_exclusion_exhaustive" | "complement";
   marketIndexA: number;
   marketIndexB: number;
   marketIdA: string;
@@ -26,7 +26,7 @@ export interface BindingConstraintResult {
   marketTitleA: string;
   marketTitleB: string;
   relationshipType: string;
-  collateralSaved: number;
+  riskReduced: number;
   edgeId: string;
   confidence: number;
 }
@@ -42,10 +42,10 @@ export interface PositionPnl {
 }
 
 export interface CollateralAnalysis {
-  naiveCollateral: number;
-  optimizedCollateral: number;
-  savings: number;
-  savingsPct: number;
+  independentMaxLoss: number;
+  trueMaxLoss: number;
+  riskReduction: number;
+  reductionPct: number;
   constraintCount: number;
   bindingConstraints: BindingConstraintResult[];
   worstCase: {
@@ -102,6 +102,9 @@ function isFeasible(resolutions: boolean[], constraints: Constraint[]): boolean 
         if (a && b) return false;
         if (!a && !b) return false;
         break;
+      case "complement":
+        if (a !== b) return false;
+        break;
       case "implication":
         if (a && !b) return false;
         break;
@@ -131,6 +134,9 @@ function canPrunePrefix(
       case "mutual_exclusion_exhaustive":
         if (aSet && bSet && a && b) return true;
         if (aSet && bSet && !a && !b) return true;
+        break;
+      case "complement":
+        if (aSet && bSet && a !== b) return true;
         break;
       case "implication":
         if (aSet && bSet && a && !b) return true;
@@ -179,6 +185,17 @@ async function fetchConstraints(
     if (edge.relationType === "mutually_exclusive") {
       constraints.push({
         type: isExhaustive ? "mutual_exclusion_exhaustive" : "mutual_exclusion",
+        marketIndexA: idxA,
+        marketIndexB: idxB,
+        marketIdA: edge.sourceMarketId,
+        marketIdB: edge.targetMarketId,
+        confidence,
+        edgeId: edge.id,
+        isStructural,
+      });
+    } else if (edge.relationType === "complement") {
+      constraints.push({
+        type: "complement",
         marketIndexA: idxA,
         marketIndexB: idxB,
         marketIdA: edge.sourceMarketId,
@@ -285,10 +302,10 @@ export async function analyzePortfolio(
 
   if (inputPositions.length === 0) {
     return {
-      naiveCollateral: 0,
-      optimizedCollateral: 0,
-      savings: 0,
-      savingsPct: 0,
+      independentMaxLoss: 0,
+      trueMaxLoss: 0,
+      riskReduction: 0,
+      reductionPct: 0,
       constraintCount: 0,
       bindingConstraints: [],
       worstCase: { resolutions: {}, positionPnls: [], totalLoss: 0 },
@@ -325,25 +342,25 @@ export async function analyzePortfolio(
     }
   }
 
-  let naiveCollateral = 0;
+  let independentMaxLoss = 0;
   for (const pos of inputPositions) {
-    naiveCollateral += positionMaxLoss(pos.side, pos.size, pos.avgPrice);
+    independentMaxLoss += positionMaxLoss(pos.side, pos.size, pos.avgPrice);
   }
 
   const constraints = await fetchConstraints(uniqueMarketIds, marketIndexMap);
 
   if (constraints.length === 0) {
     warnings.push(
-      "No proven relationships found between any markets in this portfolio. " +
-      "Collateral cannot be optimized without structural constraints.",
+      "No structural constraints found between these positions. " +
+      "Each position's max loss is independent.",
     );
   }
 
   const semanticOnly = constraints.length > 0 && constraints.every((c) => !c.isStructural);
   if (semanticOnly) {
     warnings.push(
-      "All relationships in this portfolio are based on semantic similarity, not structural proof. " +
-      "Savings estimates should be treated as approximate.",
+      "All relationships in this portfolio are semantic similarity, not structural proof. " +
+      "Risk reduction estimates should be treated as approximate.",
     );
   }
 
@@ -354,7 +371,7 @@ export async function analyzePortfolio(
     );
   }
 
-  logger.info("solving collateral", {
+  logger.info("solving max loss", {
     positions: consolidatedPositions.length,
     constraints: constraints.length,
   });
@@ -364,9 +381,9 @@ export async function analyzePortfolio(
     constraints,
   );
 
-  const optimizedCollateral = maxLoss;
-  const savings = Math.max(0, naiveCollateral - optimizedCollateral);
-  const savingsPct = naiveCollateral > 0 ? (savings / naiveCollateral) * 100 : 0;
+  const trueMaxLoss = maxLoss;
+  const riskReduction = Math.max(0, independentMaxLoss - trueMaxLoss);
+  const reductionPct = independentMaxLoss > 0 ? (riskReduction / independentMaxLoss) * 100 : 0;
 
   const bindingConstraints = computeBindingConstraints(
     consolidatedPositions,
@@ -393,10 +410,10 @@ export async function analyzePortfolio(
   }
 
   return {
-    naiveCollateral,
-    optimizedCollateral,
-    savings,
-    savingsPct,
+    independentMaxLoss,
+    trueMaxLoss,
+    riskReduction,
+    reductionPct,
     constraintCount: constraints.length,
     bindingConstraints,
     worstCase: {
@@ -431,20 +448,20 @@ function computeBindingConstraints(
         marketTitleA: marketTitles.get(c.marketIdA) ?? "Unknown",
         marketTitleB: marketTitles.get(c.marketIdB) ?? "Unknown",
         relationshipType: c.type,
-        collateralSaved: saved,
+        riskReduced: saved,
         edgeId: c.edgeId,
         confidence: c.confidence,
       });
     }
   }
 
-  results.sort((a, b) => b.collateralSaved - a.collateralSaved);
+  results.sort((a, b) => b.riskReduced - a.riskReduced);
   return results;
 }
 
 export async function suggestPositions(
   currentPositions: PositionInput[],
-): Promise<Array<{ marketId: string; marketTitle: string; relationshipCount: number; potentialSavings: string }>> {
+): Promise<Array<{ marketId: string; marketTitle: string; relationshipCount: number; potentialReduction: string }>> {
   const currentMarketIds = [...new Set(currentPositions.map((p) => p.marketId))];
   if (currentMarketIds.length === 0) return [];
 
@@ -494,6 +511,6 @@ export async function suggestPositions(
     marketId: id,
     marketTitle: titleMap.get(id) ?? "Unknown",
     relationshipCount: count,
-    potentialSavings: "Depends on position size and direction",
+    potentialReduction: "Depends on position size and direction",
   }));
 }

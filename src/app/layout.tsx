@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Ontrifice",
   },
   description:
-    "Cross-market neg risk engine for prediction markets. Proves structural relationships between contracts across platforms to compute collateral-efficient portfolios.",
+    "Cross-market structural risk analyzer for prediction markets. Proves logical relationships between contracts across platforms to compute true portfolio max loss.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Ontrifice",
     description:
-      "Cross-market neg risk engine. Proves structural relationships between prediction market contracts to reduce collateral requirements.",
+      "Cross-market structural risk analyzer. Computes true max loss for prediction market portfolios given proven constraints.",
     type: "website",
     url: "https://ontrifice.dev",
     siteName: "Ontrifice",

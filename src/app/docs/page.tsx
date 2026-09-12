@@ -4,10 +4,10 @@ import { DocsSidebar } from "@/components/docs/docs-sidebar";
 
 export const metadata: Metadata = {
   title: "API Documentation",
-  description: "REST API for computing collateral-efficient prediction market portfolios and querying proven cross-market relationships.",
+  description: "REST API for computing true max loss on prediction market portfolios and querying proven structural constraints.",
   openGraph: {
     title: "API Documentation | Ontrifice",
-    description: "REST API for computing collateral-efficient prediction market portfolios and querying proven cross-market relationships.",
+    description: "REST API for computing true max loss on prediction market portfolios and querying proven structural constraints.",
     type: "website",
     url: "https://ontrifice.dev/docs",
   },

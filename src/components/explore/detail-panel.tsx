@@ -157,7 +157,7 @@ function EdgeDetailView({
 
       <div className="border-t border-border pt-3">
         <span className="font-mono text-xs text-text-secondary uppercase tracking-wider block mb-2">
-          Collateral implication
+          Risk implication
         </span>
         <div
           className="text-xs text-text-secondary"

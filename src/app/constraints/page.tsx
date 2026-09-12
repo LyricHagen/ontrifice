@@ -4,7 +4,7 @@ import { ConstraintsBrowser } from "@/components/constraints/constraints-browser
 export const metadata: Metadata = {
   title: "Constraints",
   description:
-    "Browse proven structural relationships between prediction markets. The raw material that powers cross-market collateral optimization.",
+    "Browse proven structural constraints between prediction markets. The logical relationships that power risk analysis.",
   openGraph: {
     title: "Constraints | Ontrifice",
     description:

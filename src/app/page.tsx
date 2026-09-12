@@ -5,11 +5,11 @@ import { LiveStats } from "@/components/live-stats";
 export const metadata: Metadata = {
   title: "Ontrifice",
   description:
-    "Cross-market neg risk engine for prediction markets. Proves structural relationships between contracts across platforms to compute collateral-efficient portfolios.",
+    "Cross-market structural risk analyzer for prediction markets. Proves logical relationships between contracts across platforms to compute true portfolio max loss.",
   openGraph: {
     title: "Ontrifice",
     description:
-      "Cross-market neg risk engine. Proves structural relationships between prediction market contracts to reduce collateral requirements.",
+      "Structural risk analyzer for prediction markets. Computes true max loss given proven constraints between contracts.",
     type: "website",
     url: "https://ontrifice.dev",
   },
@@ -38,12 +38,12 @@ export default async function Home({
       <header className="mb-16">
         <h1 className="font-mono text-4xl font-bold mb-6">Ontrifice</h1>
         <p className="text-lg text-foreground leading-relaxed">
-          Your prediction market portfolio posts collateral for each position
-          independently; your actual max loss is lower.
+          Your prediction market portfolio has a lower true max loss than the
+          sum of its parts. We prove it.
         </p>
       </header>
 
-      {/* Live demo number */}
+      {/* Live stats */}
       <section className="mb-16">
         <LiveStats />
       </section>
@@ -52,29 +52,30 @@ export default async function Home({
       <section className="mb-16">
         <div className="flex flex-col gap-4 text-text-secondary leading-relaxed">
           <p>
-            Prediction markets are fully collateralized and every position locks
-            up its full risk amount. Neg risk solves this within single
-            winner-take-all events: if you hold NO on every candidate in
-            &ldquo;Who wins the election?&rdquo;, you only post collateral for
-            your max loss, not the sum of all legs.
+            Platforms margin each position independently. If you hold YES on
+            candidate A and YES on candidate B in the same race, both lock up
+            full risk. But at most one can win &mdash; your actual worst case is
+            lower than the sum.
           </p>
           <p>
-            But across disparate markets / platforms / different contract
-            structures, your capital is fragmented; you post collateral as if
-            your positions are independent but they aren&apos;t.
+            The same logic applies across markets and platforms: bucketed data
+            releases (only one unemployment range can hit), the same binary
+            question on Polymarket and Kalshi (they resolve identically), and
+            logical implications (winning the nomination is necessary to win the
+            general).
           </p>
           <p>
-            How it works: Ontrifice ingests markets from Polymarket and Kalshi
-            and detects structural relationships (mutual exclusion, implication,
-            exhaustive sets). Then, you input a portfolio of positions across any
-            markets on any platform. Then, the solver computes your true max loss
-            given the proven constraints and shows exactly which relationships
-            are saving you capital.
+            Ontrifice ingests markets from Polymarket and Kalshi, detects
+            provable structural relationships (mutual exclusion, complement,
+            implication), and computes your true economic max loss given those
+            constraints. The output is an auditable risk certificate: every
+            worst-case scenario, every binding constraint, every shadow price.
           </p>
           <p>
-            Use cases: margining a trifecta book as one position, finding hedges
-            you didn&apos;t know you had, handing your broker an auditable
-            max-loss proof, adding a leg that shrinks your worst case.
+            Use cases: computing true risk across a multi-leg book, finding
+            structural hedges you didn&apos;t know you had, handing a risk
+            manager a verifiable max-loss proof, identifying positions that
+            reduce your worst case.
           </p>
         </div>
       </section>
@@ -103,14 +104,10 @@ export default async function Home({
           Built on data from{" "}
           <a href="https://polymarket.com" target="_blank" rel="noopener noreferrer">
             Polymarket
-          </a>
-          ,{" "}
+          </a>{" "}
+          and{" "}
           <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer">
             Kalshi
-          </a>
-          , and{" "}
-          <a href="https://limitless.exchange" target="_blank" rel="noopener noreferrer">
-            Limitless
           </a>
           .{" "}
           <a href="https://github.com/LyricHagen/ontrifice" target="_blank" rel="noopener noreferrer">

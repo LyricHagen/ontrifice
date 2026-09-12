@@ -113,13 +113,17 @@ export function DocsContent() {
         <section id="overview">
           <h1 className="text-3xl font-bold font-mono mb-6">API Documentation</h1>
           <p className="text-text-secondary mb-4">
-            Use the Ontrifice API to compute collateral-efficient portfolios
-            across prediction markets. Input your positions, get back your true
-            max loss and the proven relationships that reduce it.
+            Use the Ontrifice API to compute true max loss for prediction market
+            portfolios. Input your positions, get back your independent max loss,
+            true max loss given proven structural constraints, and the
+            binding constraints that reduce it.
           </p>
 
           <h3 className="text-lg font-bold font-mono mt-8 mb-2">Base URL</h3>
-          <Code>{`https://api.ontrifice.dev/v1`}</Code>
+          <Code>{`https://ontrifice.dev`}</Code>
+          <p className="text-sm text-text-secondary mt-2">
+            All endpoints are relative to this base URL.
+          </p>
         </section>
 
         <section id="authentication" className="mt-12">
@@ -178,7 +182,7 @@ export function DocsContent() {
           id="post-api-portfolio-analyze"
           method="POST"
           path="/api/portfolio/analyze"
-          description="Compute collateral requirements for a portfolio of prediction market positions. Returns naive collateral (sum of individual max losses), optimized collateral (true max loss given proven constraints), binding constraints, and the worst-case resolution scenario."
+          description="Compute risk for a portfolio of prediction market positions. Returns independent max loss (sum of individual worst cases), true max loss (worst case given proven constraints), binding constraints with shadow prices, and the worst-case resolution scenario."
           auth={false}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Request Body</h3>
@@ -203,7 +207,7 @@ export function DocsContent() {
           />
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl -X POST https://api.ontrifice.dev/v1/api/portfolio/analyze \\
+          <Code>{`curl -X POST https://ontrifice.dev/api/portfolio/analyze \\
   -H "Content-Type: application/json" \\
   -d '{
     "positions": [
@@ -214,21 +218,21 @@ export function DocsContent() {
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
           <Code>{`{
-  "naive_collateral": 185.00,
-  "optimized_collateral": 120.00,
-  "savings": 65.00,
-  "savings_pct": 35.14,
+  "independent_max_loss": 185.00,
+  "true_max_loss": 120.00,
+  "risk_reduction": 65.00,
+  "reduction_pct": 35.14,
   "constraint_count": 3,
   "binding_constraints": [
     {
       "market_id_a": "a1b2...",
       "market_id_b": "b2c3...",
-      "market_title_a": "Will the Fed cut rates in Q3 2026?",
-      "market_title_b": "US GDP growth above 3% in 2026?",
+      "market_title_a": "Will Trump win the 2028 election?",
+      "market_title_b": "Will DeSantis win the 2028 election?",
       "relationship_type": "mutual_exclusion",
-      "collateral_saved": 65.00,
+      "risk_reduced": 65.00,
       "edge_id": "e1e2...",
-      "confidence": 0.95
+      "confidence": 1.0
     }
   ],
   "worst_case": {
@@ -236,7 +240,7 @@ export function DocsContent() {
     "position_pnls": [
       {
         "market_id": "a1b2...",
-        "market_title": "Will the Fed cut rates in Q3 2026?",
+        "market_title": "Will Trump win the 2028 election?",
         "side": "YES",
         "size": 100,
         "avg_price": 0.65,
@@ -245,7 +249,7 @@ export function DocsContent() {
       },
       {
         "market_id": "b2c3...",
-        "market_title": "US GDP growth above 3% in 2026?",
+        "market_title": "Will DeSantis win the 2028 election?",
         "side": "NO",
         "size": 200,
         "avg_price": 0.40,
@@ -264,7 +268,7 @@ export function DocsContent() {
           id="post-api-portfolio-suggest"
           method="POST"
           path="/api/portfolio/suggest"
-          description="Given an existing portfolio, suggest markets with structural relationships that could reduce total collateral requirements if added."
+          description="Given an existing portfolio, suggest markets with structural relationships that could reduce true max loss if a position is added."
           auth={false}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Request Body</h3>
@@ -277,7 +281,7 @@ export function DocsContent() {
   "suggestions": [
     {
       "market_id": "c3d4...",
-      "market_title": "Fed holds rates through 2026?",
+      "market_title": "Will Haley win the 2028 election?",
       "relationship_count": 3,
       "potential_savings": "Depends on position size and direction"
     }
@@ -290,15 +294,15 @@ export function DocsContent() {
           id="get-api-constraints"
           method="GET"
           path="/api/constraints"
-          description="List proven structural relationships between markets. These are the raw constraints that power collateral optimization."
+          description="List proven structural constraints between markets. These are the raw constraints that power risk analysis."
           auth={false}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
           <ParamTable
             params={[
-              { name: "type", type: "string", description: "Filter by relationship type: mutually_exclusive, implies, temporal_precondition" },
+              { name: "type", type: "string", description: "Filter by relationship type: mutually_exclusive, implies, complement, temporal_precondition" },
               { name: "class", type: "string", description: "Filter by relation class: logical, statistical, semantic" },
-              { name: "platform", type: "string", description: "Filter by platform: polymarket, kalshi, limitless, cross-platform" },
+              { name: "platform", type: "string", description: "Filter by platform: polymarket, kalshi, cross-platform" },
               { name: "min_confidence", type: "number", description: "Minimum confidence threshold (0-1)" },
               { name: "page", type: "integer", default: "1", description: "Page number" },
               { name: "limit", type: "integer", default: "50", description: "Results per page (max 100)" },
@@ -306,24 +310,24 @@ export function DocsContent() {
           />
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl "https://api.ontrifice.dev/v1/api/constraints?type=mutually_exclusive&min_confidence=0.8"`}</Code>
+          <Code>{`curl "https://ontrifice.dev/api/constraints?type=mutually_exclusive&class=logical"`}</Code>
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
           <Code>{`{
   "constraints": [
     {
       "id": "e1e2...",
-      "market_a": { "id": "a1b2...", "title": "Trump wins 2028", "platform": "polymarket" },
-      "market_b": { "id": "b2c3...", "title": "DeSantis wins 2028", "platform": "polymarket" },
+      "market_a": { "id": "a1b2...", "title": "Will Trump win the 2028 election?", "platform": "polymarket" },
+      "market_b": { "id": "b2c3...", "title": "Will DeSantis win the 2028 election?", "platform": "polymarket" },
       "relation_class": "logical",
       "relation_type": "mutually_exclusive",
-      "confidence": "0.95000000",
-      "score": "0.95000000",
+      "confidence": "1.00000000",
+      "score": "1.00000000",
       "direction": "bidirectional",
-      "mathematical_semantics": "P(A AND B) = 0; mutually exclusive and collectively exhaustive",
-      "evidence": { "constraintType": "mutual_exclusion", "collectivelyExhaustive": true },
+      "mathematical_semantics": "P(A AND B) = 0; at most one candidate can win the same race",
+      "evidence": { "constraintType": "mutual_exclusion", "collectivelyExhaustive": false },
       "detected_at": "2026-09-08T12:00:00.000Z",
-      "model_version": "structural-v1"
+      "model_version": "structural-v2"
     }
   ],
   "total": 234,
@@ -341,7 +345,7 @@ export function DocsContent() {
           auth={false}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://api.ontrifice.dev/v1/api/constraints/e1e2e3e4-...`}</Code>
+          <Code>{`curl https://ontrifice.dev/api/constraints/e1e2e3e4-...`}</Code>
         </Endpoint>
 
         {/* GET /api/markets */}
@@ -355,7 +359,7 @@ export function DocsContent() {
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Query Parameters</h3>
           <ParamTable
             params={[
-              { name: "platform", type: "string", description: "Filter by platform: polymarket, kalshi, limitless" },
+              { name: "platform", type: "string", description: "Filter by platform: polymarket, kalshi" },
               { name: "category", type: "string", description: "Filter by category" },
               { name: "status", type: "string", description: "Filter by status: active, resolved, voided" },
               { name: "search", type: "string", description: "Case-insensitive title search" },
@@ -398,12 +402,12 @@ export function DocsContent() {
     {
       "id": "e1e2...",
       "market_a": { "id": "a1b2...", "title": "Will the Fed cut rates in Q3 2026?", "platform": "polymarket" },
-      "market_b": { "id": "b2c3...", "title": "US GDP growth above 3% in 2026?", "platform": "kalshi" },
+      "market_b": { "id": "b2c3...", "title": "Will the Fed cut rates in Q3 2026?", "platform": "kalshi" },
       "relation_class": "logical",
-      "relation_type": "implies",
-      "confidence": "0.70000000",
-      "mathematical_semantics": "if source resolves YES, target must resolve YES",
-      "evidence": { "constraintType": "implication", "reason": "..." }
+      "relation_type": "complement",
+      "confidence": "1.00000000",
+      "mathematical_semantics": "P(A XOR B) = 0; same binary question on different platforms",
+      "evidence": { "constraintType": "complement", "reason": "..." }
     }
   ]
 }`}</Code>
@@ -439,7 +443,7 @@ export function DocsContent() {
           auth={true}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl -X POST https://api.ontrifice.dev/v1/api/ingestion/trigger \\
+          <Code>{`curl -X POST https://ontrifice.dev/api/ingestion/trigger \\
   -H "Authorization: Bearer YOUR_API_KEY"`}</Code>
         </Endpoint>
 
@@ -452,7 +456,7 @@ export function DocsContent() {
           auth={true}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl -X POST https://api.ontrifice.dev/v1/api/graph/compute \\
+          <Code>{`curl -X POST https://ontrifice.dev/api/graph/compute \\
   -H "Authorization: Bearer YOUR_API_KEY"`}</Code>
         </Endpoint>
 

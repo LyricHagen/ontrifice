@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
-import { count, desc } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { handleApiError, DatabaseError } from "@/lib/errors";
 
 export async function GET() {
   try {
     let marketsResult;
-    let edgesResult;
+    let logicalEdgesResult;
     try {
-      [marketsResult, edgesResult] = await Promise.all([
+      [marketsResult, logicalEdgesResult] = await Promise.all([
         db.select({ count: count() }).from(schema.markets),
-        db.select({ count: count() }).from(schema.edges),
+        db
+          .select({ count: count() })
+          .from(schema.edges)
+          .where(eq(schema.edges.relationClass, "logical")),
       ]);
     } catch (error) {
       throw DatabaseError("count", "stats", {
@@ -19,10 +22,10 @@ export async function GET() {
     }
 
     const marketsCount = marketsResult[0]?.count ?? 0;
-    const edgesCount = edgesResult[0]?.count ?? 0;
+    const logicalEdgesCount = logicalEdgesResult[0]?.count ?? 0;
 
     let lastComputedAt: string | null = null;
-    if (edgesCount > 0) {
+    if (logicalEdgesCount > 0) {
       try {
         const [latest] = await db
           .select({ updatedAt: schema.edges.updatedAt })
@@ -39,15 +42,16 @@ export async function GET() {
     try {
       const types = await db
         .selectDistinct({ relationType: schema.edges.relationType })
-        .from(schema.edges);
+        .from(schema.edges)
+        .where(eq(schema.edges.relationClass, "logical"));
       constraintTypes = types.length;
     } catch {
-      constraintTypes = 3;
+      constraintTypes = 4;
     }
 
     return NextResponse.json({
       marketsCount,
-      edgesCount,
+      constraintsCount: logicalEdgesCount,
       constraintTypes,
       lastComputedAt,
     });

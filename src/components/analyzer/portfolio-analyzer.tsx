@@ -25,7 +25,7 @@ interface BindingConstraint {
   market_title_a: string;
   market_title_b: string;
   relationship_type: string;
-  collateral_saved: number;
+  risk_reduced: number;
   edge_id: string;
   confidence: number;
 }
@@ -41,10 +41,10 @@ interface PositionPnl {
 }
 
 interface AnalysisResult {
-  naive_collateral: number;
-  optimized_collateral: number;
-  savings: number;
-  savings_pct: number;
+  independent_max_loss: number;
+  true_max_loss: number;
+  risk_reduction: number;
+  reduction_pct: number;
   constraint_count: number;
   binding_constraints: BindingConstraint[];
   worst_case: {
@@ -59,14 +59,8 @@ interface Suggestion {
   market_id: string;
   market_title: string;
   relationship_count: number;
-  potential_savings: string;
+  potential_reduction: string;
 }
-
-const SAMPLE_PORTFOLIO: Omit<PositionEntry, "id">[] = [
-  { marketId: "", marketTitle: "Sample position 1", platform: "polymarket", side: "YES", size: 100, avgPrice: 0.65 },
-  { marketId: "", marketTitle: "Sample position 2", platform: "polymarket", side: "NO", size: 200, avgPrice: 0.40 },
-  { marketId: "", marketTitle: "Sample position 3", platform: "kalshi", side: "YES", size: 150, avgPrice: 0.55 },
-];
 
 let nextId = 1;
 function genId(): string {
@@ -80,6 +74,14 @@ function formatUsd(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function middleTruncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  const keep = maxLen - 3;
+  const front = Math.ceil(keep * 0.4);
+  const back = Math.floor(keep * 0.6);
+  return str.slice(0, front) + "..." + str.slice(-back);
 }
 
 function MarketSearch({
@@ -181,6 +183,83 @@ function MarketSearch({
   );
 }
 
+function CsvImportButton({ onImport }: { onImport: (positions: PositionEntry[]) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+
+    if (lines.length === 0) {
+      setError("CSV file is empty.");
+      return;
+    }
+
+    const hasHeader = lines[0].toLowerCase().includes("market") || lines[0].toLowerCase().includes("side");
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    const positions: PositionEntry[] = [];
+    for (const line of dataLines) {
+      const parts = line.split(",").map((p) => p.trim());
+      if (parts.length < 4) continue;
+
+      const [marketIdOrTitle, side, sizeStr, priceStr] = parts;
+      const sideUpper = side.toUpperCase();
+      if (sideUpper !== "YES" && sideUpper !== "NO") continue;
+
+      const size = Number(sizeStr);
+      const price = Number(priceStr);
+      if (!Number.isFinite(size) || size <= 0) continue;
+      if (!Number.isFinite(price) || price <= 0 || price >= 1) continue;
+
+      positions.push({
+        id: genId(),
+        marketId: marketIdOrTitle,
+        marketTitle: marketIdOrTitle,
+        platform: "unknown",
+        side: sideUpper as "YES" | "NO",
+        size,
+        avgPrice: price,
+      });
+    }
+
+    if (positions.length === 0) {
+      setError("No valid rows found. Format: market_id, side, size, price");
+      return;
+    }
+
+    onImport(positions);
+    if (fileRef.current) fileRef.current.value = "";
+  }, [onImport]);
+
+  return (
+    <div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,.txt"
+        onChange={handleFile}
+        className="hidden"
+        id="csv-import"
+      />
+      <label
+        htmlFor="csv-import"
+        className="text-xs font-mono text-text-secondary cursor-pointer hover:text-accent"
+      >
+        Import CSV
+      </label>
+      {error && (
+        <div className="text-[10px] text-error font-mono mt-1">{error}</div>
+      )}
+    </div>
+  );
+}
+
 export function PortfolioAnalyzer() {
   const [positions, setPositions] = useState<PositionEntry[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -222,6 +301,12 @@ export function PortfolioAnalyzer() {
     [],
   );
 
+  const handleCsvImport = useCallback((imported: PositionEntry[]) => {
+    setPositions(imported);
+    setResult(null);
+    setSampleLoaded(false);
+  }, []);
+
   const loadSample = useCallback(async () => {
     try {
       const res = await fetch("/api/markets?limit=10&sort=volume&order=desc");
@@ -238,7 +323,7 @@ export function PortfolioAnalyzer() {
           size: [100, 200, 150, 100, 250, 100, 175, 200][i] ?? 100,
           avgPrice: m.currentProbability
             ? parseFloat(m.currentProbability as string)
-            : SAMPLE_PORTFOLIO[i % SAMPLE_PORTFOLIO.length].avgPrice,
+            : 0.5,
         }));
         setPositions(entries);
         setSampleLoaded(true);
@@ -313,7 +398,7 @@ export function PortfolioAnalyzer() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-mono text-2xl font-bold mb-1">Portfolio Analyzer</h1>
+        <h1 className="font-mono text-2xl font-bold mb-1">Portfolio Risk Analyzer</h1>
         <p className="text-sm text-text-secondary">
           Input positions across prediction markets. The solver computes your
           true max loss given proven structural constraints between markets.
@@ -328,20 +413,26 @@ export function PortfolioAnalyzer() {
               <h2 className="font-mono text-sm font-semibold uppercase tracking-wider">
                 Positions
               </h2>
-              <button
-                onClick={loadSample}
-                className="text-xs font-mono text-accent bg-transparent border-none cursor-pointer p-0"
-                disabled={sampleLoaded}
-              >
-                {sampleLoaded ? "Sample loaded" : "Try sample portfolio"}
-              </button>
+              <div className="flex items-center gap-3">
+                <CsvImportButton onImport={handleCsvImport} />
+                <button
+                  onClick={loadSample}
+                  className="text-xs font-mono text-accent bg-transparent border-none cursor-pointer p-0"
+                  disabled={sampleLoaded}
+                >
+                  {sampleLoaded ? "Sample loaded" : "Try sample portfolio"}
+                </button>
+              </div>
             </div>
 
             <MarketSearch onSelect={addPosition} />
 
             {positions.length === 0 && (
               <div className="text-xs text-text-secondary mt-4 text-center py-8">
-                Search for markets above to add positions, or load a sample portfolio.
+                <p>Search for markets above to add positions, or load a sample portfolio.</p>
+                <p className="mt-2 text-muted">
+                  CSV format: market_id, side, size, price
+                </p>
               </div>
             )}
 
@@ -406,9 +497,9 @@ export function PortfolioAnalyzer() {
                           updatePosition(pos.id, "avgPrice", v);
                         }
                       }}
-                      className="w-16 bg-surface border border-border px-2 py-1 text-xs font-mono text-foreground"
+                      className="w-20 bg-surface border border-border px-2 py-1 text-xs font-mono text-foreground"
                       style={{ borderRadius: "2px" }}
-                      title="Average entry price"
+                      title="Average entry price (0-1)"
                     />
                   </div>
                 </div>
@@ -445,7 +536,7 @@ export function PortfolioAnalyzer() {
           {!result && !error && !analyzing && (
             <div className="border border-border p-8 text-center" style={{ borderRadius: "2px" }}>
               <p className="font-mono text-sm text-text-secondary">
-                Add positions and click Analyze to compute collateral requirements.
+                Add positions and click Analyze to compute true max loss.
               </p>
             </div>
           )}
@@ -458,7 +549,7 @@ export function PortfolioAnalyzer() {
                   style={{ borderRadius: "2px" }}
                 />
                 <span className="font-mono text-sm text-text-secondary">
-                  Computing collateral bounds...
+                  Computing risk bounds...
                 </span>
               </div>
             </div>
@@ -484,10 +575,10 @@ export function PortfolioAnalyzer() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border border border-border" style={{ borderRadius: "2px" }}>
                 <div className="bg-background p-4 text-center">
                   <div className="text-xs text-text-secondary uppercase tracking-wider mb-1 font-mono">
-                    Naive Collateral
+                    Independent Max Loss
                   </div>
                   <div className="font-mono text-xl font-bold">
-                    {formatUsd(result.naive_collateral)}
+                    {formatUsd(result.independent_max_loss)}
                   </div>
                 </div>
                 <div className="bg-background p-4 text-center">
@@ -495,79 +586,56 @@ export function PortfolioAnalyzer() {
                     True Max Loss
                   </div>
                   <div className="font-mono text-xl font-bold">
-                    {formatUsd(result.optimized_collateral)}
+                    {formatUsd(result.true_max_loss)}
                   </div>
                 </div>
                 <div className="bg-background p-4 text-center">
                   <div className="text-xs text-text-secondary uppercase tracking-wider mb-1 font-mono">
-                    Capital Freed
+                    Risk Reduction
                   </div>
-                  <div className="font-mono text-xl font-bold text-accent">
-                    {formatUsd(result.savings)}
-                  </div>
-                  <div className="text-xs text-text-secondary font-mono mt-0.5">
-                    {result.savings_pct.toFixed(1)}% reduction
-                  </div>
+                  {result.risk_reduction > 0 ? (
+                    <>
+                      <div className="font-mono text-xl font-bold text-accent">
+                        {formatUsd(result.risk_reduction)}
+                      </div>
+                      <div className="text-xs text-text-secondary font-mono mt-0.5">
+                        {result.reduction_pct.toFixed(1)}% lower
+                      </div>
+                    </>
+                  ) : (
+                    <div className="font-mono text-sm text-text-secondary mt-1">
+                      No structural constraints found between these positions
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Binding constraints */}
-              {result.binding_constraints.length > 0 && (
-                <div className="border border-border" style={{ borderRadius: "2px" }}>
-                  <div className="px-4 py-3 border-b border-border">
+              {/* Worst case scenario — the certificate */}
+              <div className="border border-border" style={{ borderRadius: "2px" }}>
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                  <div>
                     <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">
-                      Binding Constraints
+                      Worst-Case Scenario
                     </h3>
                     <p className="text-xs text-text-secondary mt-0.5">
-                      Proven relationships actively reducing your collateral requirement.
+                      The resolution combination that produces your maximum loss.
+                      This is the auditable risk certificate.
                     </p>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs font-mono">
-                      <thead>
-                        <tr className="border-b border-border text-text-secondary">
-                          <th className="text-left px-4 py-2 font-normal">Market A</th>
-                          <th className="text-left px-4 py-2 font-normal">Market B</th>
-                          <th className="text-left px-4 py-2 font-normal">Type</th>
-                          <th className="text-right px-4 py-2 font-normal">Saved</th>
-                          <th className="text-right px-4 py-2 font-normal">Conf.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result.binding_constraints.map((bc, i) => (
-                          <tr key={i} className="border-b border-border last:border-b-0">
-                            <td className="px-4 py-2 max-w-[180px] truncate" title={bc.market_title_a}>
-                              {bc.market_title_a}
-                            </td>
-                            <td className="px-4 py-2 max-w-[180px] truncate" title={bc.market_title_b}>
-                              {bc.market_title_b}
-                            </td>
-                            <td className="px-4 py-2 text-text-secondary">
-                              {bc.relationship_type.replace(/_/g, " ")}
-                            </td>
-                            <td className="px-4 py-2 text-right text-accent">
-                              {formatUsd(bc.collateral_saved)}
-                            </td>
-                            <td className="px-4 py-2 text-right text-text-secondary">
-                              {(bc.confidence * 100).toFixed(0)}%
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Worst case scenario */}
-              <div className="border border-border" style={{ borderRadius: "2px" }}>
-                <div className="px-4 py-3 border-b border-border">
-                  <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">
-                    Worst-Case Scenario
-                  </h3>
-                  <p className="text-xs text-text-secondary mt-0.5">
-                    The resolution combination that produces your maximum loss.
-                  </p>
+                  <button
+                    onClick={() => {
+                      const rows = result.worst_case.position_pnls.map((p) =>
+                        [p.market_title, p.side, p.size, p.avg_price.toFixed(4), p.resolution, p.pnl.toFixed(2)].join("\t"),
+                      );
+                      const header = "Market\tSide\tSize\tPrice\tResolves\tP&L";
+                      const footer = `\nTotal loss:\t\t\t\t\t${(-result.worst_case.total_loss).toFixed(2)}`;
+                      navigator.clipboard.writeText(header + "\n" + rows.join("\n") + footer);
+                    }}
+                    className="text-xs font-mono text-text-secondary bg-transparent border border-border px-2 py-1 cursor-pointer shrink-0"
+                    style={{ borderRadius: "2px" }}
+                  >
+                    Copy table
+                  </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs font-mono">
@@ -584,8 +652,8 @@ export function PortfolioAnalyzer() {
                     <tbody>
                       {result.worst_case.position_pnls.map((p, i) => (
                         <tr key={i} className="border-b border-border last:border-b-0">
-                          <td className="px-4 py-2 max-w-[200px] truncate" title={p.market_title}>
-                            {p.market_title}
+                          <td className="px-4 py-2 max-w-[200px]" title={p.market_title}>
+                            {middleTruncate(p.market_title, 50)}
                           </td>
                           <td className="px-4 py-2">{p.side}</td>
                           <td className="px-4 py-2 text-right">{p.size}</td>
@@ -616,26 +684,73 @@ export function PortfolioAnalyzer() {
                 </div>
               </div>
 
-              {/* Suggestions */}
+              {/* Binding constraints with shadow prices */}
+              {result.binding_constraints.length > 0 && (
+                <div className="border border-border" style={{ borderRadius: "2px" }}>
+                  <div className="px-4 py-3 border-b border-border">
+                    <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">
+                      Binding Constraints
+                    </h3>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      Structural relationships actively reducing your worst case.
+                      &ldquo;Risk reduced&rdquo; is the shadow price &mdash; how much
+                      your max loss increases if this constraint is removed.
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono">
+                      <thead>
+                        <tr className="border-b border-border text-text-secondary">
+                          <th className="text-left px-4 py-2 font-normal">Market A</th>
+                          <th className="text-left px-4 py-2 font-normal">Market B</th>
+                          <th className="text-left px-4 py-2 font-normal">Type</th>
+                          <th className="text-right px-4 py-2 font-normal">Risk Reduced</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.binding_constraints.map((bc, i) => (
+                          <tr key={i} className="border-b border-border last:border-b-0">
+                            <td className="px-4 py-2 max-w-[180px]" title={bc.market_title_a}>
+                              {middleTruncate(bc.market_title_a, 40)}
+                            </td>
+                            <td className="px-4 py-2 max-w-[180px]" title={bc.market_title_b}>
+                              {middleTruncate(bc.market_title_b, 40)}
+                            </td>
+                            <td className="px-4 py-2 text-text-secondary">
+                              {bc.relationship_type.replace(/_/g, " ")}
+                            </td>
+                            <td className="px-4 py-2 text-right text-accent">
+                              {formatUsd(bc.risk_reduced)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Suggestions — structural hedges */}
               {suggestions.length > 0 && (
                 <div className="border border-border" style={{ borderRadius: "2px" }}>
                   <div className="px-4 py-3 border-b border-border">
                     <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">
-                      Suggested Markets
+                      Structural Hedges
                     </h3>
                     <p className="text-xs text-text-secondary mt-0.5">
-                      Markets with structural relationships to your portfolio that could reduce collateral.
+                      Markets with structural relationships to your portfolio.
+                      Adding a position could reduce your worst case.
                     </p>
                   </div>
                   <div className="divide-y divide-border">
                     {suggestions.map((s) => (
                       <div key={s.market_id} className="px-4 py-2 flex items-center justify-between">
                         <div>
-                          <div className="text-xs font-mono truncate max-w-[300px]" title={s.market_title}>
-                            {s.market_title}
+                          <div className="text-xs font-mono max-w-[300px]" title={s.market_title}>
+                            {middleTruncate(s.market_title, 55)}
                           </div>
                           <div className="text-[10px] text-text-secondary font-mono">
-                            {s.relationship_count} relationship{s.relationship_count !== 1 ? "s" : ""} to portfolio
+                            {s.relationship_count} constraint{s.relationship_count !== 1 ? "s" : ""} with portfolio
                           </div>
                         </div>
                       </div>

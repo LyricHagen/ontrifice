@@ -49,10 +49,10 @@ export async function POST(request: NextRequest) {
     const result = await analyzePortfolio(positions);
 
     return NextResponse.json({
-      naive_collateral: result.naiveCollateral,
-      optimized_collateral: result.optimizedCollateral,
-      savings: result.savings,
-      savings_pct: result.savingsPct,
+      independent_max_loss: result.independentMaxLoss,
+      true_max_loss: result.trueMaxLoss,
+      risk_reduction: result.riskReduction,
+      reduction_pct: result.reductionPct,
       constraint_count: result.constraintCount,
       binding_constraints: result.bindingConstraints.map((bc) => ({
         market_id_a: bc.marketIdA,
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         market_title_a: bc.marketTitleA,
         market_title_b: bc.marketTitleB,
         relationship_type: bc.relationshipType,
-        collateral_saved: bc.collateralSaved,
+        risk_reduced: bc.riskReduced,
         edge_id: bc.edgeId,
         confidence: bc.confidence,
       })),
