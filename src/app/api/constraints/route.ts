@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, desc, count, gte, or, inArray } from "drizzle-orm";
+import { eq, and, desc, count, gte, or, ne, inArray, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, schema } from "@/db";
 import { handleApiError, ValidationError, DatabaseError } from "@/lib/errors";
 
@@ -26,7 +27,14 @@ export async function GET(request: NextRequest) {
       throw ValidationError("class", `must be one of: ${VALID_CLASSES.join(", ")}`);
     }
 
-    const conditions = [];
+    const srcMarket = alias(schema.markets, "src_market");
+    const tgtMarket = alias(schema.markets, "tgt_market");
+
+    const conditions: SQL[] = [
+      eq(schema.edges.sourceMarketId, srcMarket.id),
+      eq(schema.edges.targetMarketId, tgtMarket.id),
+    ];
+
     if (relationType) {
       conditions.push(eq(schema.edges.relationType, relationType));
     }
@@ -40,21 +48,59 @@ export async function GET(request: NextRequest) {
       }
       conditions.push(gte(schema.edges.confidence, String(conf)));
     }
+    if (platform) {
+      if (platform === "cross-platform") {
+        conditions.push(ne(srcMarket.platform, tgtMarket.platform));
+      } else {
+        conditions.push(
+          or(
+            eq(srcMarket.platform, platform as "polymarket" | "kalshi" | "limitless"),
+            eq(tgtMarket.platform, platform as "polymarket" | "kalshi" | "limitless"),
+          )!,
+        );
+      }
+    }
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
 
-    let edges;
+    let rows;
     let totalResult;
     try {
-      [edges, totalResult] = await Promise.all([
+      [rows, totalResult] = await Promise.all([
         db
-          .select()
+          .select({
+            id: schema.edges.id,
+            sourceMarketId: schema.edges.sourceMarketId,
+            targetMarketId: schema.edges.targetMarketId,
+            relationClass: schema.edges.relationClass,
+            relationType: schema.edges.relationType,
+            score: schema.edges.score,
+            confidence: schema.edges.confidence,
+            direction: schema.edges.direction,
+            mathematicalSemantics: schema.edges.mathematicalSemantics,
+            evidence: schema.edges.evidence,
+            observedAt: schema.edges.observedAt,
+            modelVersion: schema.edges.modelVersion,
+            srcId: srcMarket.id,
+            srcTitle: srcMarket.title,
+            srcPlatform: srcMarket.platform,
+            tgtId: tgtMarket.id,
+            tgtTitle: tgtMarket.title,
+            tgtPlatform: tgtMarket.platform,
+          })
           .from(schema.edges)
+          .innerJoin(srcMarket, eq(schema.edges.sourceMarketId, srcMarket.id))
+          .innerJoin(tgtMarket, eq(schema.edges.targetMarketId, tgtMarket.id))
           .where(where)
           .orderBy(desc(schema.edges.confidence))
           .limit(limit)
           .offset((page - 1) * limit),
-        db.select({ count: count() }).from(schema.edges).where(where),
+        db
+          .select({ count: count() })
+          .from(schema.edges)
+          .innerJoin(srcMarket, eq(schema.edges.sourceMarketId, srcMarket.id))
+          .innerJoin(tgtMarket, eq(schema.edges.targetMarketId, tgtMarket.id))
+          .where(where),
       ]);
     } catch (error) {
       throw DatabaseError("select", "edges", {
@@ -62,69 +108,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const allMarketIds = new Set<string>();
-    for (const edge of edges) {
-      allMarketIds.add(edge.sourceMarketId);
-      allMarketIds.add(edge.targetMarketId);
-    }
-
-    const marketMap = new Map<string, { id: string; title: string; platform: string }>();
-    if (allMarketIds.size > 0) {
-      try {
-        const marketsData = await db
-          .select({
-            id: schema.markets.id,
-            title: schema.markets.title,
-            platform: schema.markets.platform,
-          })
-          .from(schema.markets)
-          .where(inArray(schema.markets.id, [...allMarketIds]));
-        for (const m of marketsData) {
-          marketMap.set(m.id, m);
-        }
-      } catch (error) {
-        throw DatabaseError("select", "markets", {
-          originalError: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    let filteredEdges = edges;
-    if (platform) {
-      filteredEdges = edges.filter((e) => {
-        const src = marketMap.get(e.sourceMarketId);
-        const tgt = marketMap.get(e.targetMarketId);
-        if (platform === "cross-platform") {
-          return src && tgt && src.platform !== tgt.platform;
-        }
-        return (
-          (src && src.platform === platform) ||
-          (tgt && tgt.platform === platform)
-        );
-      });
-    }
-
-    const enriched = filteredEdges.map((edge) => ({
-      id: edge.id,
-      market_a: marketMap.get(edge.sourceMarketId) ?? {
-        id: edge.sourceMarketId,
-        title: "Unknown",
-        platform: "unknown",
-      },
-      market_b: marketMap.get(edge.targetMarketId) ?? {
-        id: edge.targetMarketId,
-        title: "Unknown",
-        platform: "unknown",
-      },
-      relation_class: edge.relationClass,
-      relation_type: edge.relationType,
-      confidence: edge.confidence,
-      score: edge.score,
-      direction: edge.direction,
-      mathematical_semantics: edge.mathematicalSemantics,
-      evidence: edge.evidence,
-      detected_at: edge.observedAt,
-      model_version: edge.modelVersion,
+    const enriched = rows.map((row) => ({
+      id: row.id,
+      market_a: { id: row.srcId, title: row.srcTitle, platform: row.srcPlatform },
+      market_b: { id: row.tgtId, title: row.tgtTitle, platform: row.tgtPlatform },
+      relation_class: row.relationClass,
+      relation_type: row.relationType,
+      confidence: row.confidence,
+      score: row.score,
+      direction: row.direction,
+      mathematical_semantics: row.mathematicalSemantics,
+      evidence: row.evidence,
+      detected_at: row.observedAt,
+      model_version: row.modelVersion,
     }));
 
     return NextResponse.json({

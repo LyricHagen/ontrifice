@@ -120,7 +120,7 @@ export function DocsContent() {
           </p>
 
           <h3 className="text-lg font-bold font-mono mt-8 mb-2">Base URL</h3>
-          <Code>{`https://ontrifice.dev`}</Code>
+          <Code>{`https://ontrifice.vercel.app`}</Code>
           <p className="text-sm text-text-secondary mt-2">
             All endpoints are relative to this base URL.
           </p>
@@ -207,7 +207,7 @@ export function DocsContent() {
           />
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl -X POST https://ontrifice.dev/api/portfolio/analyze \\
+          <Code>{`curl -X POST https://ontrifice.vercel.app/api/portfolio/analyze \\
   -H "Content-Type: application/json" \\
   -d '{
     "positions": [
@@ -310,7 +310,7 @@ export function DocsContent() {
           />
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl "https://ontrifice.dev/api/constraints?type=mutually_exclusive&class=logical"`}</Code>
+          <Code>{`curl "https://ontrifice.vercel.app/api/constraints?type=mutually_exclusive&class=logical"`}</Code>
 
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Response</h3>
           <Code>{`{
@@ -345,7 +345,7 @@ export function DocsContent() {
           auth={false}
         >
           <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl https://ontrifice.dev/api/constraints/e1e2e3e4-...`}</Code>
+          <Code>{`curl https://ontrifice.vercel.app/api/constraints/e1e2e3e4-...`}</Code>
         </Endpoint>
 
         {/* GET /api/markets */}
@@ -432,32 +432,6 @@ export function DocsContent() {
               { name: "limit", type: "integer", default: "100", description: "Max edges to return (max 500)" },
             ]}
           />
-        </Endpoint>
-
-        {/* POST /api/ingestion/trigger */}
-        <Endpoint
-          id="post-api-ingestion-trigger"
-          method="POST"
-          path="/api/ingestion/trigger"
-          description="Trigger a market data ingestion run. Fetches the latest data from all connected prediction market platforms."
-          auth={true}
-        >
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl -X POST https://ontrifice.dev/api/ingestion/trigger \\
-  -H "Authorization: Bearer YOUR_API_KEY"`}</Code>
-        </Endpoint>
-
-        {/* POST /api/graph/compute */}
-        <Endpoint
-          id="post-api-graph-compute"
-          method="POST"
-          path="/api/graph/compute"
-          description="Trigger a full graph computation cycle. Recomputes all edges and detects structural relationships between markets."
-          auth={true}
-        >
-          <h3 className="text-lg font-bold font-mono mt-6 mb-2">Example Request</h3>
-          <Code>{`curl -X POST https://ontrifice.dev/api/graph/compute \\
-  -H "Authorization: Bearer YOUR_API_KEY"`}</Code>
         </Endpoint>
 
         {/* Client Libraries */}

@@ -15,8 +15,6 @@ const sections = [
   { id: "get-api-markets-id", label: "GET /api/markets/:id" },
   { id: "get-api-markets-id-relationships", label: "GET /api/markets/:id/relationships" },
   { id: "get-api-graph-edges", label: "GET /api/graph/edges" },
-  { id: "post-api-ingestion-trigger", label: "POST /api/ingestion/trigger" },
-  { id: "post-api-graph-compute", label: "POST /api/graph/compute" },
   { id: "client-libraries", label: "Client Libraries" },
 ];
 

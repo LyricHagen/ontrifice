@@ -13,7 +13,7 @@ export async function GET(
     let market;
     try {
       [market] = await db
-        .select({ id: schema.markets.id, title: schema.markets.title })
+        .select({ id: schema.markets.id, title: schema.markets.title, platform: schema.markets.platform })
         .from(schema.markets)
         .where(eq(schema.markets.id, id))
         .limit(1);
@@ -56,7 +56,7 @@ export async function GET(
     }
 
     const marketMap = new Map<string, { id: string; title: string; platform: string }>();
-    marketMap.set(market.id, { ...market, platform: "" });
+    marketMap.set(market.id, market);
 
     if (neighborIds.size > 0) {
       try {
