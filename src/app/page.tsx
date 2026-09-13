@@ -39,7 +39,7 @@ export default async function Home({
         <h1 className="font-mono text-4xl font-bold mb-6">Ontrifice</h1>
         <p className="text-lg text-foreground leading-relaxed">
           Your prediction market portfolio has a lower true max loss than the
-          sum of its parts. We prove it.
+          sum of its parts.
         </p>
       </header>
 
@@ -54,7 +54,7 @@ export default async function Home({
           <p>
             Platforms margin each position independently. If you hold YES on
             candidate A and YES on candidate B in the same race, both lock up
-            full risk. But at most one can win &mdash; your actual worst case is
+            full risk. But at most one can win; your actual worst case is
             lower than the sum.
           </p>
           <p>
